@@ -1,0 +1,46 @@
+{{define "content"}}
+<h2 style="margin-bottom: 20px;">Sales - {{.Shop.Name}}</h2>
+
+<div class="card">
+    <div style="margin-bottom: 20px;">
+        <strong>Total Sales: </strong> KSh {{.TotalSales}}
+    </div>
+    
+    {{if .Sales}}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Product</th>
+                <th>Qty</th>
+                <th>Unit Price</th>
+                <th>Total</th>
+                <th>Profit</th>
+                <th>Payment</th>
+                <th>Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Sales}}
+            <tr>
+                <td>#{{.ID}}</td>
+                <td>{{.Product.Name}}</td>
+                <td>{{.Quantity}}</td>
+                <td>KSh {{.UnitPrice}}</td>
+                <td>KSh {{.TotalAmount}}</td>
+                <td>KSh {{.Profit}}</td>
+                <td>
+                    <span class="badge badge-success">{{.PaymentMethod}}</span>
+                </td>
+                <td>{{.CreatedAt.Format "2006-01-02 15:04"}}</td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p style="text-align: center; padding: 30px; color: #666;">
+        No sales recorded yet. Record sales via WhatsApp with: <code>sell [product] [qty]</code>
+    </p>
+    {{end}}
+</div>
+{{end}}

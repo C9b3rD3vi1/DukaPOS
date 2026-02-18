@@ -1,0 +1,80 @@
+version: '3.8'
+
+services:
+  # Development with SQLite
+  dukapos:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - ENVIRONMENT=development
+      - DB_TYPE=sqlite
+      - DATABASE_PATH=/app/data/dukapos.db
+      - JWT_SECRET=${JWT_SECRET:-change-me-in-production}
+      - TWILIO_ACCOUNT_SID=${TWILIO_ACCOUNT_SID}
+      - TWILIO_AUTH_TOKEN=${TWILIO_AUTH_TOKEN}
+      - TWILIO_WHATSAPP_NUMBER=${TWILIO_WHATSAPP_NUMBER}
+      - MPESA_CONSUMER_KEY=${MPESA_CONSUMER_KEY}
+      - MPESA_CONSUMER_SECRET=${MPESA_CONSUMER_SECRET}
+      - MPESA_SHORTCODE=${MPESA_SHORTCODE}
+      - MPESA_PASSKEY=${MPESA_PASSKEY}
+      - MPESA_CALLBACK_URL=${MPESA_CALLBACK_URL}
+      - AFRICA_TALKING_API_KEY=${AFRICA_TALKING_API_KEY}
+      - AFRICA_TALKING_USERNAME=${AFRICA_TALKING_USERNAME}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+      - SENDGRID_FROM_EMAIL=${SENDGRID_FROM_EMAIL}
+      - FEATURE_MPESA_ENABLED=true
+      - FEATURE_ANALYTICS_ENABLED=true
+      - FEATURE_WEB_DASHBOARD_ENABLED=true
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Production with PostgreSQL (uncomment to use)
+  # dukapos-prod:
+  #   build: .
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - PORT=8080
+  #     - ENVIRONMENT=production
+  #     - DB_TYPE=postgres
+  #     - DB_HOST=postgres
+  #     - DB_PORT=5432
+  #     - DB_USER=postgres
+  #     - DB_PASSWORD=postgres
+  #     - DB_NAME=dukapos
+  #     - DB_SSL_MODE=disable
+  #     - JWT_SECRET=${JWT_SECRET}
+  #   depends_on:
+  #     - postgres
+  #   restart: unless-stopped
+
+  # PostgreSQL database (uncomment to use)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     - POSTGRES_USER=postgres
+  #     - POSTGRES_PASSWORD=postgres
+  #     - POSTGRES_DB=dukapos
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+
+  # SQLite browser for development
+  adminer:
+    image: adminer
+    ports:
+      - "8081:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

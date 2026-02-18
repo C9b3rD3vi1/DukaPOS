@@ -1,0 +1,42 @@
+{{define "content"}}
+<h2 style="margin-bottom: 20px;">Products - {{.Shop.Name}}</h2>
+
+<div class="card">
+    {{if .Products}}
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Category</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            {{range .Products}}
+            <tr>
+                <td>#{{.ID}}</td>
+                <td>{{.Name}}</td>
+                <td>{{.Category}}</td>
+                <td>KSh {{.SellingPrice}}</td>
+                <td>{{.CurrentStock}} {{.Unit}}</td>
+                <td>
+                    {{if le .CurrentStock .LowStockThreshold}}
+                    <span class="badge badge-danger">Low Stock</span>
+                    {{else}}
+                    <span class="badge badge-success">In Stock</span>
+                    {{end}}
+                </td>
+            </tr>
+            {{end}}
+        </tbody>
+    </table>
+    {{else}}
+    <p style="text-align: center; padding: 30px; color: #666;">
+        No products yet. Add products via WhatsApp with: <code>add [name] [price] [qty]</code>
+    </p>
+    {{end}}
+</div>
+{{end}}
