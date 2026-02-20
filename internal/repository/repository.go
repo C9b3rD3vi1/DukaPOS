@@ -138,7 +138,7 @@ func (r *ProductRepository) GetByCategory(shopID uint, category string) ([]model
 func (r *ProductRepository) GetCategories(shopID uint) ([]string, error) {
 	var categories []string
 	err := r.db.Model(&models.Product{}).
-		Where("shop_id = ? AND category != '' AND is_active = ?", shopID, true).
+		Where("shop_id = ? AND category != '' AND is_active = ? AND name NOT LIKE '__category_%'", shopID, true).
 		Distinct("category").
 		Pluck("category", &categories).Error
 	return categories, err
@@ -194,7 +194,7 @@ func (r *SaleRepository) Create(sale *models.Sale) error {
 // GetByID gets a sale by ID
 func (r *SaleRepository) GetByID(id uint) (*models.Sale, error) {
 	var sale models.Sale
-	err := r.db.First(&sale, id).Error
+	err := r.db.Preload("Product").Preload("Customer").First(&sale, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -885,7 +885,7 @@ func (r *OrderRepository) Create(order *models.Order) error {
 // GetByID gets an order by ID
 func (r *OrderRepository) GetByID(id uint) (*models.Order, error) {
 	var order models.Order
-	err := r.db.Preload("Supplier").Preload("Items").First(&order, id).Error
+	err := r.db.Preload("Supplier").Preload("Items").Preload("Items.Product").First(&order, id).Error
 	if err != nil {
 		return nil, err
 	}

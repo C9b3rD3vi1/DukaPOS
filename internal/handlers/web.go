@@ -10,6 +10,18 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
+// getShopID returns shop_id from JWT token or URL params
+func getShopID(c *fiber.Ctx) (uint, error) {
+	if sid, ok := c.Locals("shop_id").(uint); ok && sid > 0 {
+		return sid, nil
+	}
+	id, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	if err != nil {
+		return 0, err
+	}
+	return uint(id), nil
+}
+
 // DashboardData holds all dashboard information
 type DashboardData struct {
 	Shop        *models.Shop
@@ -241,14 +253,14 @@ func (h *WebHandler) calculateWeeklyData(shopID uint) []DailyData {
 
 // Dashboard renders the main dashboard
 func (h *WebHandler) Dashboard(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).Render("error", fiber.Map{
 			"Error": "Invalid shop ID",
 		})
 	}
 
-	data, err := h.GetDashboardData(uint(shopID))
+	data, err := h.GetDashboardData(shopID)
 	if err != nil {
 		return c.Status(404).Render("error", fiber.Map{
 			"Error": "Shop not found",
@@ -275,14 +287,14 @@ func (h *WebHandler) Dashboard(c *fiber.Ctx) error {
 
 // DashboardJSON returns dashboard data as JSON
 func (h *WebHandler) DashboardJSON(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "Invalid shop ID",
 		})
 	}
 
-	data, err := h.GetDashboardData(uint(shopID))
+	data, err := h.GetDashboardData(shopID)
 	if err != nil {
 		return c.Status(404).JSON(fiber.Map{
 			"error": "Shop not found",
@@ -301,12 +313,19 @@ func (h *WebHandler) DashboardJSON(c *fiber.Ctx) error {
 
 // APIProducts handles products API
 func (h *WebHandler) APIProducts(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid shop ID"})
+	// Try JWT shop_id first, fall back to URL param
+	var shopID uint
+	if sid, ok := c.Locals("shop_id").(uint); ok && sid > 0 {
+		shopID = sid
+	} else {
+		id, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid shop ID"})
+		}
+		shopID = uint(id)
 	}
 
-	products, err := h.productRepo.GetByShopID(uint(shopID))
+	products, err := h.productRepo.GetByShopID(shopID)
 	if err != nil {
 		products = []models.Product{}
 	}
@@ -320,9 +339,16 @@ func (h *WebHandler) APIProducts(c *fiber.Ctx) error {
 
 // APIProductCreate creates a new product via API
 func (h *WebHandler) APIProductCreate(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid shop ID"})
+	// Try JWT shop_id first, fall back to URL param
+	var shopID uint
+	if sid, ok := c.Locals("shop_id").(uint); ok && sid > 0 {
+		shopID = sid
+	} else {
+		id, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{"error": "Invalid shop ID"})
+		}
+		shopID = uint(id)
 	}
 
 	var req struct {
@@ -461,7 +487,7 @@ func (h *WebHandler) APIProductDelete(c *fiber.Ctx) error {
 
 // APISales handles sales API
 func (h *WebHandler) APISales(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid shop ID"})
 	}
@@ -473,7 +499,7 @@ func (h *WebHandler) APISales(c *fiber.Ctx) error {
 		limit = 100
 	}
 
-	sales, err := h.saleRepo.GetByShopID(uint(shopID), limit)
+	sales, err := h.saleRepo.GetByShopID(shopID, limit)
 	if err != nil {
 		sales = []models.Sale{}
 	}
@@ -489,7 +515,7 @@ func (h *WebHandler) APISales(c *fiber.Ctx) error {
 
 // APISaleCreate creates a new sale
 func (h *WebHandler) APISaleCreate(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid shop ID"})
 	}
@@ -564,7 +590,7 @@ func (h *WebHandler) APISaleCreate(c *fiber.Ctx) error {
 
 // APIReports handles reports API
 func (h *WebHandler) APIReports(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "Invalid shop ID"})
 	}
@@ -641,14 +667,14 @@ func (h *WebHandler) APIReports(c *fiber.Ctx) error {
 
 // ProductsList renders the products list page
 func (h *WebHandler) ProductsList(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
-		return c.Status(400).Render("error", fiber.Map{
-			"Error": "Invalid shop ID",
+		return c.Status(400).JSON(fiber.Map{
+			"error": "Invalid shop ID",
 		})
 	}
 
-	products, err := h.productRepo.GetByShopID(uint(shopID))
+	products, err := h.productRepo.GetByShopID(shopID)
 	if err != nil {
 		products = []models.Product{}
 	}
@@ -673,14 +699,14 @@ func (h *WebHandler) ProductsList(c *fiber.Ctx) error {
 
 // SalesList renders the sales list page
 func (h *WebHandler) SalesList(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).Render("error", fiber.Map{
 			"Error": "Invalid shop ID",
 		})
 	}
 
-	sales, err := h.saleRepo.GetByShopID(uint(shopID), 100)
+	sales, err := h.saleRepo.GetByShopID(shopID, 100)
 	if err != nil {
 		sales = []models.Sale{}
 	}

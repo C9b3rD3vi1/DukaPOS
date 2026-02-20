@@ -1,7 +1,11 @@
 package handlers
 
 import (
+	"fmt"
+	"math/rand"
 	"strconv"
+	"strings"
+	"time"
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/repository"
@@ -69,9 +73,10 @@ func (h *CustomerHandler) Create(c *fiber.Ctx) error {
 	shopID := c.Locals("shop_id").(uint)
 
 	type Request struct {
-		Name  string `json:"name"`
-		Phone string `json:"phone"`
-		Email string `json:"email"`
+		Name    string `json:"name"`
+		Phone   string `json:"phone"`
+		Email   string `json:"email"`
+		Address string `json:"address"`
 	}
 
 	var req Request
@@ -87,13 +92,18 @@ func (h *CustomerHandler) Create(c *fiber.Ctx) error {
 		})
 	}
 
+	// Generate unique referral code
+	referralCode := generateReferralCode(req.Name, req.Phone)
+
 	customer := &models.Customer{
-		ShopID:  shopID,
-		Name:    req.Name,
-		Phone:   req.Phone,
-		Email:   req.Email,
-		Tier:    "bronze",
-		IsActive: true,
+		ShopID:       shopID,
+		Name:         req.Name,
+		Phone:        req.Phone,
+		Email:        req.Email,
+		Address:      req.Address,
+		Tier:         "bronze",
+		IsActive:     true,
+		ReferralCode: referralCode,
 	}
 
 	if err := h.customerRepo.Create(customer); err != nil {
@@ -106,6 +116,30 @@ func (h *CustomerHandler) Create(c *fiber.Ctx) error {
 		"message": "Customer created",
 		"data":    customer,
 	})
+}
+
+// generateReferralCode creates a unique referral code from name and phone
+func generateReferralCode(name, phone string) string {
+	// Use first 3 letters of name + last 4 digits of phone
+	namePart := "CUS"
+	if len(name) >= 3 {
+		namePart = strings.ToUpper(name[:3])
+	} else if len(name) > 0 {
+		namePart = strings.ToUpper(name)
+	}
+
+	phonePart := "0000"
+	phoneDigits := strings.ReplaceAll(phone, " ", "")
+	phoneDigits = strings.ReplaceAll(phoneDigits, "-", "")
+	if len(phoneDigits) >= 4 {
+		phonePart = phoneDigits[len(phoneDigits)-4:]
+	}
+
+	// Add random suffix to ensure uniqueness
+	rand.Seed(time.Now().UnixNano())
+	suffix := rand.Intn(9000) + 1000
+
+	return fmt.Sprintf("%s%s%d", namePart, phonePart, suffix)
 }
 
 // Update updates a customer

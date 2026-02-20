@@ -183,8 +183,9 @@ type Order struct {
 	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relations
-	Shop     Shop     `gorm:"foreignKey:ShopID" json:"shop,omitempty"`
-	Supplier Supplier `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
+	Shop     Shop        `gorm:"foreignKey:ShopID" json:"shop,omitempty"`
+	Supplier Supplier    `gorm:"foreignKey:SupplierID" json:"supplier,omitempty"`
+	Items    []OrderItem `gorm:"foreignKey:OrderID" json:"items,omitempty"`
 }
 
 // OrderItem represents items in an order
@@ -195,6 +196,10 @@ type OrderItem struct {
 	Quantity  int     `gorm:"not null" json:"quantity"`
 	UnitCost  float64 `gorm:"type:decimal(12,2)" json:"unit_cost"`
 	TotalCost float64 `gorm:"type:decimal(12,2)" json:"total_cost"`
+
+	// Relations
+	Order   Order   `gorm:"foreignKey:OrderID" json:"-"`
+	Product Product `gorm:"foreignKey:ProductID" json:"product,omitempty"`
 }
 
 // AuditLog represents system audit logs

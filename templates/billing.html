@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Billing - DukaPOS</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes progressBar {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .animate-slide-in { animation: slideIn 0.3s ease-out; }
+    .animate-progress { animation: progressBar 3s linear forwards; }
+    .plan-card { transition: all 0.3s ease; }
+    .plan-card:hover { transform: translateY(-4px); }
+    .plan-card.current { border-color: #10b981; box-shadow: 0 0 0 2px #10b981; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="sticky top-0 z-40 bg-white border-b border-gray-200">
+    <div class="flex items-center justify-between px-4 py-3">
+      <div class="flex items-center gap-3">
+        <button onclick="toggleSidebar()" class="lg:hidden p-2 -ml-2 hover:bg-gray-100 rounded-lg">
+          <i data-lucide="menu" class="w-6 h-6 text-gray-700"></i>
+        </button>
+        <div>
+          <h1 class="text-xl font-bold text-gray-900">Billing & Plans</h1>
+          <p class="text-sm text-gray-500">Manage your subscription</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span id="currentPlanBadge" class="hidden sm:inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">
+          Loading...
+        </span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transform -translate-x-full lg:translate-x-0 transition-transform duration-300">
+    <div class="flex flex-col h-full">
+      <div class="p-4 border-b border-gray-200">
+        <a href="/dashboard" class="flex items-center gap-2">
+          <div class="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
+            <i data-lucide="shopping-cart" class="w-5 h-5 text-white"></i>
+          </div>
+          <span class="text-xl font-bold text-gray-900">DukaPOS</span>
+        </a>
+      </div>
+      <nav class="flex-1 overflow-y-auto p-4 space-y-1">
+        <a href="/dashboard" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+          <span class="font-medium">Dashboard</span>
+        </a>
+        <a href="/products" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="package" class="w-5 h-5"></i>
+          <span class="font-medium">Products</span>
+        </a>
+        <a href="/sales" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="receipt" class="w-5 h-5"></i>
+          <span class="font-medium">Sales</span>
+        </a>
+        <a href="/customers" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="users" class="w-5 h-5"></i>
+          <span class="font-medium">Customers</span>
+        </a>
+        <a href="/suppliers" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="truck" class="w-5 h-5"></i>
+          <span class="font-medium">Suppliers</span>
+        </a>
+        <a href="/orders" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+          <span class="font-medium">Orders</span>
+        </a>
+        <a href="/mpesa" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="smartphone" class="w-5 h-5"></i>
+          <span class="font-medium">M-Pesa</span>
+        </a>
+        <a href="/staff" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="user-cog" class="w-5 h-5"></i>
+          <span class="font-medium">Staff</span>
+        </a>
+        <a href="/ai" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="brain" class="w-5 h-5"></i>
+          <span class="font-medium">AI Predictions</span>
+        </a>
+        <a href="/reports" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+          <span class="font-medium">Reports</span>
+        </a>
+        <a href="/apikeys" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="key" class="w-5 h-5"></i>
+          <span class="font-medium">API Keys</span>
+        </a>
+        <a href="/sms" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="message-square" class="w-5 h-5"></i>
+          <span class="font-medium">SMS</span>
+        </a>
+        <a href="/email" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="mail" class="w-5 h-5"></i>
+          <span class="font-medium">Email</span>
+        </a>
+        <a href="/webhooks" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="webhook" class="w-5 h-5"></i>
+          <span class="font-medium">Webhooks</span>
+        </a>
+        <a href="/printer" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="printer" class="w-5 h-5"></i>
+          <span class="font-medium">Printer</span>
+        </a>
+        <a href="/settings" class="flex items-center gap-3 px-4 py-3 text-gray-700 hover:bg-gray-50 rounded-lg">
+          <i data-lucide="settings" class="w-5 h-5"></i>
+          <span class="font-medium">Settings</span>
+        </a>
+        <a href="/billing" class="flex items-center gap-3 px-4 py-3 bg-primary/10 text-primary rounded-lg">
+          <i data-lucide="credit-card" class="w-5 h-5"></i>
+          <span class="font-medium">Billing</span>
+        </a>
+      </nav>
+      <div class="p-4 border-t border-gray-200">
+        <button onclick="logout()" class="flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 rounded-lg w-full">
+          <i data-lucide="log-out" class="w-5 h-5"></i>
+          <span class="font-medium">Logout</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Overlay -->
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+  <!-- Main Content -->
+  <main class="lg:ml-64 min-h-screen pb-20 lg:pb-8">
+    <div class="p-4 max-w-6xl mx-auto">
+      <!-- Current Plan Card -->
+      <div id="currentPlanCard" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 mb-1">Current Plan</h2>
+            <p class="text-sm text-gray-500 mb-4" id="planDescription">Loading plan details...</p>
+            <div id="usageStats" class="space-y-3">
+              <!-- Usage stats will be inserted here -->
+            </div>
+          </div>
+          <div class="text-right">
+            <div id="planPrice" class="text-3xl font-bold text-gray-900 mb-1">-</div>
+            <div class="text-sm text-gray-500">per month</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Plans Comparison -->
+      <div class="mb-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Choose Your Plan</h2>
+        <div class="grid md:grid-cols-3 gap-4">
+          <!-- Free Plan -->
+          <div id="freePlan" class="plan-card bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gray-900">Free</h3>
+              <span class="text-2xl font-bold text-gray-900">KSh 0</span>
+            </div>
+            <p class="text-sm text-gray-500 mb-6">Perfect for getting started</p>
+            <ul class="space-y-3 mb-6">
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>Up to 50 products</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>1 shop</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>Basic sales tracking</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-400">
+                <i data-lucide="x" class="w-4 h-4 text-gray-300"></i>
+                <span>M-Pesa integration</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-400">
+                <i data-lucide="x" class="w-4 h-4 text-gray-300"></i>
+                <span>Staff accounts</span>
+              </li>
+            </ul>
+            <button id="freePlanBtn" class="w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-medium" disabled>
+              Current Plan
+            </button>
+          </div>
+
+          <!-- Pro Plan -->
+          <div id="proPlan" class="plan-card bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-6 relative">
+            <div class="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-primary text-white text-xs font-bold rounded-full">
+              POPULAR
+            </div>
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gray-900">Pro</h3>
+              <span class="text-2xl font-bold text-gray-900">KSh 999</span>
+            </div>
+            <p class="text-sm text-gray-500 mb-6">For growing businesses</p>
+            <ul class="space-y-3 mb-6">
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>Unlimited products</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>Up to 3 shops</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>M-Pesa integration</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>2 staff accounts</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>Loyalty program</span>
+              </li>
+            </ul>
+            <button id="proPlanBtn" onclick="upgradePlan('pro')" class="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition">
+              Upgrade to Pro
+            </button>
+          </div>
+
+          <!-- Business Plan -->
+          <div id="businessPlan" class="plan-card bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-6">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-lg font-bold text-gray-900">Business</h3>
+              <span class="text-2xl font-bold text-gray-900">KSh 2,499</span>
+            </div>
+            <p class="text-sm text-gray-500 mb-6">For established businesses</p>
+            <ul class="space-y-3 mb-6">
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>Everything in Pro</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>Unlimited shops</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>5 staff accounts</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>API access & webhooks</span>
+              </li>
+              <li class="flex items-center gap-2 text-sm text-gray-700">
+                <i data-lucide="check" class="w-4 h-4 text-green-500"></i>
+                <span>AI predictions</span>
+              </li>
+            </ul>
+            <button id="businessPlanBtn" onclick="upgradePlan('business')" class="w-full py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition">
+              Upgrade to Business
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Payment Methods -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-gray-900">Payment Methods</h2>
+          <button onclick="openModal('addPaymentMethodModal')" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium hover:bg-primary-dark transition">
+            Add Payment Method
+          </button>
+        </div>
+        <div id="paymentMethodsList" class="space-y-3">
+          <div class="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+                <i data-lucide="smartphone" class="w-5 h-5 text-green-600"></i>
+              </div>
+              <div>
+                <p class="font-medium text-gray-900">M-Pesa</p>
+                <p class="text-sm text-gray-500">+254 7XX XXX XXX</p>
+              </div>
+            </div>
+            <span class="px-3 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full">Default</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Billing History -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4">Billing History</h2>
+        <div id="billingHistory" class="space-y-3">
+          <div class="text-center py-8 text-gray-500">
+            <i data-lucide="receipt" class="w-12 h-12 mx-auto mb-3 text-gray-300"></i>
+            <p>No billing history yet</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Add Payment Method Modal -->
+  <div id="addPaymentMethodModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Add Payment Method</h3>
+        <button onclick="closeModal('addPaymentMethodModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div class="space-y-4">
+        <button onclick="selectPaymentMethod('mpesa')" class="w-full flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-primary transition">
+          <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
+            <i data-lucide="smartphone" class="w-5 h-5 text-green-600"></i>
+          </div>
+          <div class="text-left flex-1">
+            <p class="font-medium text-gray-900">M-Pesa</p>
+            <p class="text-sm text-gray-500">Pay via M-Pesa mobile money</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+        </button>
+        <button onclick="selectPaymentMethod('card')" class="w-full flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-primary transition">
+          <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+            <i data-lucide="credit-card" class="w-5 h-5 text-blue-600"></i>
+          </div>
+          <div class="text-left flex-1">
+            <p class="font-medium text-gray-900">Credit/Debit Card</p>
+            <p class="text-sm text-gray-500">Pay with Visa, Mastercard</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+        </button>
+        <button onclick="selectPaymentMethod('bank')" class="w-full flex items-center gap-3 p-4 border border-gray-200 rounded-xl hover:border-primary transition">
+          <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center">
+            <i data-lucide="building-2" class="w-5 h-5 text-purple-600"></i>
+          </div>
+          <div class="text-left flex-1">
+            <p class="font-medium text-gray-900">Bank Transfer</p>
+            <p class="text-sm text-gray-500">Direct bank transfer</p>
+          </div>
+          <i data-lucide="chevron-right" class="w-5 h-5 text-gray-400"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upgrade Confirmation Modal -->
+  <div id="upgradeModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6">
+      <div class="text-center">
+        <div class="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="sparkles" class="w-8 h-8 text-primary"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Upgrade to <span id="upgradePlanName">Pro</span></h3>
+        <p class="text-gray-500 mb-6">You will be charged <span id="upgradePlanPrice" class="font-bold text-gray-900">KSh 999</span> monthly. Proceed?</p>
+        <div class="flex gap-3">
+          <button onclick="closeModal('upgradeModal')" class="flex-1 py-3 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button onclick="confirmUpgrade()" class="flex-1 py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition">
+            Confirm Upgrade
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2"></div>
+
+  <script>
+    lucide.createIcons();
+    
+    const token = localStorage.getItem('dukapos_token');
+    if (!token) window.location.href = '/login';
+    
+    const shop = JSON.parse(localStorage.getItem('dukapos_shop') || '{}');
+    let currentPlan = 'free';
+    let selectedUpgradePlan = null;
+    
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+    }
+    
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById(id).classList.add('flex');
+    }
+    
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      document.getElementById(id).classList.remove('flex');
+    }
+    
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) {
+        const newContainer = document.createElement('div');
+        newContainer.id = 'toast-container';
+        newContainer.className = 'fixed top-20 right-4 z-50 flex flex-col gap-2';
+        document.body.appendChild(newContainer);
+      }
+      
+      const toast = document.createElement('div');
+      toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transform transition-all duration-300 min-w-[280px] max-w-md animate-slide-in relative overflow-hidden`;
+      
+      const colors = { success: 'bg-green-500 text-white', error: 'bg-red-500 text-white', warning: 'bg-amber-500 text-white', info: 'bg-blue-500 text-white' };
+      const icons = {
+        success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+        error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+        warning: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+        info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+      };
+      
+      toast.className += ` ${colors[type] || colors.info}`;
+      toast.innerHTML = `<div class="flex-shrink-0">${icons[type] || icons.info}</div><div class="flex-1 text-sm font-medium">${msg}</div><button onclick="this.parentElement.remove()" class="flex-shrink-0 opacity-70 hover:opacity-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button><div class="absolute bottom-0 left-0 h-1 bg-white/30 animate-progress" style="animation-duration: 3s"></div>`;
+      
+      document.getElementById('toast-container').appendChild(toast);
+      setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 3000);
+    }
+    
+    async function loadPlanInfo() {
+      try {
+        const res = await fetch('/api/v1/plan', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (!res.ok) throw new Error('Failed to load plan');
+        
+        const plan = await res.json();
+        currentPlan = plan.plan;
+        
+        // Update current plan badge
+        const badge = document.getElementById('currentPlanBadge');
+        badge.textContent = plan.plan.charAt(0).toUpperCase() + plan.plan.slice(1);
+        badge.className = `hidden sm:inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+          plan.plan === 'free' ? 'bg-gray-100 text-gray-700' :
+          plan.plan === 'pro' ? 'bg-primary/10 text-primary' :
+          'bg-purple-100 text-purple-700'
+        }`;
+        
+        // Update current plan card
+        document.getElementById('planDescription').textContent = 
+          plan.plan === 'free' ? 'Basic plan with limited features' :
+          plan.plan === 'pro' ? 'Perfect for growing businesses' :
+          'Complete solution for established businesses';
+        
+        document.getElementById('planPrice').textContent = 
+          plan.plan === 'free' ? 'KSh 0' :
+          plan.plan === 'pro' ? 'KSh 999' :
+          'KSh 2,499';
+        
+        // Update usage stats
+        const usageStats = document.getElementById('usageStats');
+        usageStats.innerHTML = `
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">Products</span>
+              <span class="font-medium">${plan.products || 0} / ${plan.max_products === -1 ? '∞' : plan.max_products}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="bg-primary h-2 rounded-full transition-all" style="width: ${plan.max_products === -1 ? 0 : Math.min((plan.products || 0) / plan.max_products * 100, 100)}%"></div>
+            </div>
+          </div>
+          ${plan.max_staff > 0 ? `
+          <div>
+            <div class="flex justify-between text-sm mb-1">
+              <span class="text-gray-600">Staff</span>
+              <span class="font-medium">${plan.staff || 0} / ${plan.max_staff}</span>
+            </div>
+            <div class="w-full bg-gray-200 rounded-full h-2">
+              <div class="bg-primary h-2 rounded-full transition-all" style="width: ${Math.min((plan.staff || 0) / plan.max_staff * 100, 100)}%"></div>
+            </div>
+          </div>
+          ` : ''}
+        `;
+        
+        // Highlight current plan
+        document.querySelectorAll('.plan-card').forEach(card => card.classList.remove('current'));
+        document.getElementById(`${plan.plan}Plan`).classList.add('current');
+        
+        // Update button states
+        document.getElementById('freePlanBtn').textContent = plan.plan === 'free' ? 'Current Plan' : 'Downgrade';
+        document.getElementById('freePlanBtn').disabled = plan.plan === 'free';
+        document.getElementById('freePlanBtn').className = plan.plan === 'free' 
+          ? 'w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-medium'
+          : 'w-full py-3 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50';
+        
+        document.getElementById('proPlanBtn').textContent = plan.plan === 'pro' ? 'Current Plan' : (plan.plan === 'business' ? 'Downgrade' : 'Upgrade to Pro');
+        document.getElementById('proPlanBtn').disabled = plan.plan === 'pro';
+        document.getElementById('proPlanBtn').className = plan.plan === 'pro'
+          ? 'w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-medium'
+          : 'w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition';
+        
+        document.getElementById('businessPlanBtn').textContent = plan.plan === 'business' ? 'Current Plan' : 'Upgrade to Business';
+        document.getElementById('businessPlanBtn').disabled = plan.plan === 'business';
+        document.getElementById('businessPlanBtn').className = plan.plan === 'business'
+          ? 'w-full py-3 bg-gray-100 text-gray-700 rounded-lg font-medium'
+          : 'w-full py-3 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition';
+        
+      } catch (err) {
+        showToast('Failed to load plan information', 'error');
+      }
+    }
+    
+    function upgradePlan(plan) {
+      selectedUpgradePlan = plan;
+      const planNames = { free: 'Free', pro: 'Pro', business: 'Business' };
+      const planPrices = { free: 'KSh 0', pro: 'KSh 999', business: 'KSh 2,499' };
+      
+      document.getElementById('upgradePlanName').textContent = planNames[plan];
+      document.getElementById('upgradePlanPrice').textContent = planPrices[plan];
+      openModal('upgradeModal');
+    }
+    
+    async function confirmUpgrade() {
+      if (!selectedUpgradePlan) return;
+      
+      try {
+        // Simulate API call - in production, this would process payment
+        showToast('Processing payment...', 'info');
+        
+        // Mock API call
+        setTimeout(() => {
+          showToast(`Successfully upgraded to ${selectedUpgradePlan.charAt(0).toUpperCase() + selectedUpgradePlan.slice(1)}!`, 'success');
+          closeModal('upgradeModal');
+          loadPlanInfo();
+        }, 2000);
+        
+      } catch (err) {
+        showToast('Upgrade failed. Please try again.', 'error');
+      }
+    }
+    
+    function selectPaymentMethod(method) {
+      showToast(`${method.charAt(0).toUpperCase() + method.slice(1)} payment method selected`, 'success');
+      closeModal('addPaymentMethodModal');
+    }
+    
+    function logout() {
+      localStorage.removeItem('dukapos_token');
+      localStorage.removeItem('dukapos_shop');
+      window.location.href = '/login';
+    }
+    
+    // Load plan info on page load
+    loadPlanInfo();
+  </script>
+</body>
+</html>
+</content>
+</invoke>

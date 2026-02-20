@@ -818,3 +818,128 @@ func (h *ProductHandler) ListCategories(c *fiber.Ctx) error {
 		"total":         len(categories) + 1, // +1 for uncategorized
 	})
 }
+
+// CreateCategory creates a new category (as string in products)
+func (h *ProductHandler) CreateCategory(c *fiber.Ctx) error {
+	shopID := c.Locals("shop_id").(uint)
+
+	type Request struct {
+		Name string `json:"name"`
+	}
+
+	var req Request
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if req.Name == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Category name is required"})
+	}
+
+	// Check if category already exists
+	existing, _ := h.productRepo.GetCategories(shopID)
+	for _, cat := range existing {
+		if cat == req.Name {
+			return c.Status(400).JSON(fiber.Map{"error": "Category already exists"})
+		}
+	}
+
+	// Create a placeholder product with this category to "register" it
+	placeholder := &models.Product{
+		ShopID:   shopID,
+		Name:     "__category_" + req.Name,
+		Category: req.Name,
+		IsActive: false, // Inactive = not shown but category exists
+	}
+
+	if err := h.productRepo.Create(placeholder); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to create category"})
+	}
+
+	return c.Status(201).JSON(fiber.Map{
+		"message": "Category created",
+		"id":      placeholder.ID,
+		"name":    req.Name,
+	})
+}
+
+// UpdateCategory renames a category
+func (h *ProductHandler) UpdateCategory(c *fiber.Ctx) error {
+	shopID := c.Locals("shop_id").(uint)
+	categoryID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid category ID"})
+	}
+
+	type Request struct {
+		Name string `json:"name"`
+	}
+
+	var req Request
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if req.Name == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Category name is required"})
+	}
+
+	// Get the placeholder product
+	product, err := h.productRepo.GetByID(uint(categoryID))
+	if err != nil || product.ShopID != shopID {
+		return c.Status(404).JSON(fiber.Map{"error": "Category not found"})
+	}
+
+	oldName := product.Category
+	product.Category = req.Name
+	if err := h.productRepo.Update(product); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to update category"})
+	}
+
+	// Update all products with old category name
+	products, _ := h.productRepo.GetByShopID(shopID)
+	for i := range products {
+		if products[i].Category == oldName {
+			products[i].Category = req.Name
+			h.productRepo.Update(&products[i])
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Category updated",
+		"name":    req.Name,
+	})
+}
+
+// DeleteCategory deletes a category
+func (h *ProductHandler) DeleteCategory(c *fiber.Ctx) error {
+	shopID := c.Locals("shop_id").(uint)
+	categoryID, err := c.ParamsInt("id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid category ID"})
+	}
+
+	// Get the placeholder product
+	product, err := h.productRepo.GetByID(uint(categoryID))
+	if err != nil || product.ShopID != shopID {
+		return c.Status(404).JSON(fiber.Map{"error": "Category not found"})
+	}
+
+	categoryName := product.Category
+
+	// Update all products with this category to uncategorized
+	products, _ := h.productRepo.GetByShopID(shopID)
+	for i := range products {
+		if products[i].Category == categoryName {
+			products[i].Category = ""
+			h.productRepo.Update(&products[i])
+		}
+	}
+
+	// Delete the placeholder product
+	h.productRepo.Delete(uint(categoryID))
+
+	return c.JSON(fiber.Map{
+		"message": "Category deleted",
+	})
+}

@@ -17,6 +17,7 @@ import (
 	docshandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/docs"
 	emailhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/email"
 	mpesahandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/mpesa"
+	printerhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/printer"
 	smshandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/sms"
 	staffhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/staff"
 	supplierhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/supplier"
@@ -29,6 +30,7 @@ import (
 	apiservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/api"
 	email "github.com/C9b3rD3vi1/DukaPOS/internal/services/email"
 	mpesaservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/mpesa"
+	printerservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/printer"
 	scheduler "github.com/C9b3rD3vi1/DukaPOS/internal/services/scheduler"
 	smsservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/sms"
 	ussdservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/ussd"
@@ -164,6 +166,10 @@ func main() {
 		ussdHandler = ussdhandler.New(ussdSvc)
 		log.Println("✅ USSD service initialized")
 	}
+
+	// Printer Service
+	printerSvc := printerservice.New(&printerservice.PrinterConfig{})
+	log.Println("✅ Printer service initialized")
 
 	// ========== Initialize Handlers ==========
 	whatsappHandler := handlers.NewWhatsAppHandler(cmdHandler, cfg)
@@ -383,25 +389,138 @@ func main() {
 		// Initialize web handler
 		webHandler := handlers.NewWebHandler(shopRepo, productRepo, saleRepo)
 
-		// Web routes
+		// Web routes - serve templates from templates directory
 		web := app.Group("")
-		web.Get("/", webHandler.Index)
+
+		// Landing page
+		web.Get("/", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/landing.html")
+		})
+
+		// Login page
+		web.Get("/login", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/login.html")
+		})
+
+		// Register page
+		web.Get("/register", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/register.html")
+		})
+
+		// Logout
+		web.Get("/logout", func(c *fiber.Ctx) error {
+			c.ClearCookie("token")
+			return c.Redirect("/login")
+		})
+
+		// Dashboard
 		web.Get("/dashboard", func(c *fiber.Ctx) error {
-			return c.SendFile("./static/dashboard.html")
+			return c.SendFile("./templates/dashboard.html")
 		})
 		web.Get("/dashboard/:shop_id", func(c *fiber.Ctx) error {
-			return c.SendFile("./static/dashboard.html")
+			return c.SendFile("./templates/dashboard.html")
+		})
+
+		// Products
+		web.Get("/products", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/products.html")
 		})
 		web.Get("/products/:shop_id", webHandler.ProductsList)
+
+		// Sales
+		web.Get("/sales", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/sales.html")
+		})
 		web.Get("/sales/:shop_id", webHandler.SalesList)
+
+		// Customers
+		web.Get("/customers", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/customers.html")
+		})
+
+		// Suppliers
+		web.Get("/suppliers", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/suppliers.html")
+		})
+
+		// Orders
+		web.Get("/orders", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/orders.html")
+		})
+
+		// M-Pesa
+		web.Get("/mpesa", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/mpesa.html")
+		})
+
+		// Staff
+		web.Get("/staff", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/staff.html")
+		})
+
+		// AI Insights
+		web.Get("/ai", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/ai.html")
+		})
+
+		// API Keys
+		web.Get("/apikeys", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/apikeys.html")
+		})
+
+		// Webhooks
+		web.Get("/webhooks", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/webhooks.html")
+		})
+
+		// SMS
+		web.Get("/sms", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/sms.html")
+		})
+
+		// Email
+		web.Get("/email", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/email.html")
+		})
+
+		// Printer
+		web.Get("/printer", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/printer.html")
+		})
+
+		// Reports
+		web.Get("/reports", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/reports.html")
+		})
+
+		// Email
+		web.Get("/email", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/email.html")
+		})
+
+		// Settings
+		web.Get("/settings", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/settings.html")
+		})
+
+		// Billing
+		web.Get("/billing", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/billing.html")
+		})
+
 		log.Println("✅ Web dashboard enabled")
 
-		// Dashboard API routes (public for demo, protected in production)
+		// Dashboard API routes - use JWT auth like protected routes
 		webAPI := app.Group("/api/v1")
+		webAPI.Use(middleware.JWT(authService))
 		webAPI.Get("/shop/dashboard-json/:shop_id", webHandler.DashboardJSON)
 		webAPI.Get("/shop/dashboard/:shop_id", webHandler.Dashboard)
-		webAPI.Get("/products/:shop_id", webHandler.APIProducts)
+		// Put specific routes BEFORE parameterized routes
+		webAPI.Get("/products/categories", productHandler.ListCategories)
+		webAPI.Post("/products/bulk", productHandler.BulkCreateProducts)
 		webAPI.Post("/products", webHandler.APIProductCreate)
+		webAPI.Get("/products", productHandler.ListProducts)
+		webAPI.Get("/products/:id", productHandler.GetProduct)
 		webAPI.Put("/products/:id", webHandler.APIProductUpdate)
 		webAPI.Delete("/products/:id", webHandler.APIProductDelete)
 		webAPI.Get("/sales/:shop_id", webHandler.APISales)
@@ -476,6 +595,11 @@ func main() {
 	protected.Post("/products", productHandler.CreateProduct)
 	protected.Put("/products/:id", productHandler.UpdateProduct)
 	protected.Delete("/products/:id", productHandler.DeleteProduct)
+	protected.Post("/products/bulk", productHandler.BulkCreateProducts)
+	protected.Get("/products/categories", productHandler.ListCategories)
+	protected.Post("/products/categories", productHandler.CreateCategory)
+	protected.Put("/products/categories/:id", productHandler.UpdateCategory)
+	protected.Delete("/products/categories/:id", productHandler.DeleteCategory)
 
 	// Sale routes
 	protected.Get("/sales", saleHandler.ListSales)
@@ -491,6 +615,7 @@ func main() {
 		staffRoutes.Post("/", staffHandler.Create)
 		staffRoutes.Put("/:id", staffHandler.Update)
 		staffRoutes.Delete("/:id", staffHandler.Delete)
+		staffRoutes.Put("/:id/pin", staffHandler.UpdatePin)
 		log.Println("✅ Staff routes enabled (Plan: Pro+)")
 	}
 
@@ -523,9 +648,11 @@ func main() {
 		webhookRoutes := protected.Group("/webhooks")
 		webhookRoutes.Use(middleware.RequireBusiness())
 		webhookRoutes.Get("/", webhookHandler.List)
+		webhookRoutes.Get("/:id", webhookHandler.Get)
 		webhookRoutes.Post("/", webhookHandler.Create)
 		webhookRoutes.Put("/:id", webhookHandler.Update)
 		webhookRoutes.Delete("/:id", webhookHandler.Delete)
+		webhookRoutes.Post("/:id/test", webhookHandler.Test)
 		log.Println("✅ Webhook routes enabled (Plan: Business)")
 	}
 
@@ -582,6 +709,20 @@ func main() {
 	orderRoutes.Put("/:id/status", supplierHandler.UpdateOrderStatus)
 	orderRoutes.Delete("/:id", supplierHandler.DeleteOrder)
 	log.Println("✅ Supplier/Order routes enabled")
+
+	// ========== Printer/Receipt Routes ==========
+	printerHandler := printerhandler.New(printerSvc)
+	printRoutes := protected.Group("/print")
+	printRoutes.Post("/receipt", printerHandler.PrintReceipt)
+	printRoutes.Post("/text", printerHandler.GetTextReceipt)
+	printRoutes.Post("/thermal", printerHandler.GetThermalReceipt)
+	printRoutes.Post("/html", printerHandler.GetHTMLReceipt)
+	printRoutes.Post("/report", printerHandler.PrintDailyReport)
+	printRoutes.Get("/printers", printerHandler.GetPrinters)
+	printRoutes.Post("/test", printerHandler.TestPrinter)
+	printRoutes.Put("/config", printerHandler.Configure)
+	printRoutes.Get("/config", printerHandler.GetConfig)
+	log.Println("✅ Printer routes enabled")
 
 	// ========== Webhook Routes (External - No Auth) ==========
 	webhook := app.Group("/webhook")

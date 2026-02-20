@@ -1,0 +1,37 @@
+{
+  "name": "DukaPOS - WhatsApp POS for Kenyan Shops",
+  "short_name": "DukaPOS",
+  "description": "Manage your duka from WhatsApp. Track stock, record sales, reconcile M-Pesa.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#00A650",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/static/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/static/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "shortcuts": [
+    {
+      "name": "Dashboard",
+      "url": "/dashboard",
+      "description": "View your dashboard"
+    },
+    {
+      "name": "Add Sale",
+      "url": "/dashboard",
+      "description": "Record a new sale"
+    }
+  ]
+}

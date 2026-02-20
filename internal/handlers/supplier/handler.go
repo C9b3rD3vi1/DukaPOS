@@ -15,6 +15,18 @@ type Handler struct {
 	productRepo  *repository.ProductRepository
 }
 
+// getShopID returns shop_id from JWT token (uint) or URL params (string)
+func getShopID(c *fiber.Ctx) (uint, error) {
+	if sid, ok := c.Locals("shop_id").(uint); ok && sid > 0 {
+		return sid, nil
+	}
+	if sid, ok := c.Locals("shop_id").(string); ok && sid != "" {
+		id, err := strconv.ParseUint(sid, 10, 32)
+		return uint(id), err
+	}
+	return 0, fiber.NewError(400, "invalid shop id")
+}
+
 // New creates a new supplier handler
 func New(supplierRepo *repository.SupplierRepository, orderRepo *repository.OrderRepository, productRepo *repository.ProductRepository) *Handler {
 	return &Handler{
@@ -26,12 +38,12 @@ func New(supplierRepo *repository.SupplierRepository, orderRepo *repository.Orde
 
 // ListSuppliers GET /suppliers - List all suppliers
 func (h *Handler) ListSuppliers(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
 
-	suppliers, err := h.supplierRepo.GetByShopID(uint(shopID))
+	suppliers, err := h.supplierRepo.GetByShopID(shopID)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -41,7 +53,7 @@ func (h *Handler) ListSuppliers(c *fiber.Ctx) error {
 
 // CreateSupplier POST /suppliers - Create a new supplier
 func (h *Handler) CreateSupplier(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -51,7 +63,7 @@ func (h *Handler) CreateSupplier(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
-	supplier.ShopID = uint(shopID)
+	supplier.ShopID = shopID
 	if err := h.supplierRepo.Create(&supplier); err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -61,7 +73,7 @@ func (h *Handler) CreateSupplier(c *fiber.Ctx) error {
 
 // GetSupplier GET /suppliers/:id - Get a supplier
 func (h *Handler) GetSupplier(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -76,7 +88,7 @@ func (h *Handler) GetSupplier(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "supplier not found"})
 	}
 
-	if supplier.ShopID != uint(shopID) {
+	if supplier.ShopID != shopID {
 		return c.Status(403).JSON(fiber.Map{"error": "not authorized"})
 	}
 
@@ -85,7 +97,7 @@ func (h *Handler) GetSupplier(c *fiber.Ctx) error {
 
 // UpdateSupplier PUT /suppliers/:id - Update a supplier
 func (h *Handler) UpdateSupplier(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -100,7 +112,7 @@ func (h *Handler) UpdateSupplier(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "supplier not found"})
 	}
 
-	if supplier.ShopID != uint(shopID) {
+	if supplier.ShopID != shopID {
 		return c.Status(403).JSON(fiber.Map{"error": "not authorized"})
 	}
 
@@ -131,7 +143,7 @@ func (h *Handler) UpdateSupplier(c *fiber.Ctx) error {
 
 // DeleteSupplier DELETE /suppliers/:id - Delete a supplier
 func (h *Handler) DeleteSupplier(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -146,7 +158,7 @@ func (h *Handler) DeleteSupplier(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "supplier not found"})
 	}
 
-	if supplier.ShopID != uint(shopID) {
+	if supplier.ShopID != shopID {
 		return c.Status(403).JSON(fiber.Map{"error": "not authorized"})
 	}
 
@@ -159,7 +171,7 @@ func (h *Handler) DeleteSupplier(c *fiber.Ctx) error {
 
 // ListOrders GET /orders - List all orders
 func (h *Handler) ListOrders(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -167,9 +179,9 @@ func (h *Handler) ListOrders(c *fiber.Ctx) error {
 	status := c.Query("status")
 	var orders []models.Order
 	if status != "" {
-		orders, err = h.orderRepo.GetByStatus(uint(shopID), status)
+		orders, err = h.orderRepo.GetByStatus(shopID, status)
 	} else {
-		orders, err = h.orderRepo.GetByShopID(uint(shopID))
+		orders, err = h.orderRepo.GetByShopID(shopID)
 	}
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
@@ -180,7 +192,7 @@ func (h *Handler) ListOrders(c *fiber.Ctx) error {
 
 // CreateOrder POST /orders - Create a new order
 func (h *Handler) CreateOrder(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -199,7 +211,7 @@ func (h *Handler) CreateOrder(c *fiber.Ctx) error {
 
 	// Validate supplier
 	supplier, err := h.supplierRepo.GetByID(req.SupplierID)
-	if err != nil || supplier.ShopID != uint(shopID) {
+	if err != nil || supplier.ShopID != shopID {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid supplier"})
 	}
 
@@ -210,7 +222,7 @@ func (h *Handler) CreateOrder(c *fiber.Ctx) error {
 	}
 
 	order := &models.Order{
-		ShopID:      uint(shopID),
+		ShopID:      shopID,
 		SupplierID:  req.SupplierID,
 		Status:      req.Status,
 		TotalAmount: total,
@@ -237,9 +249,9 @@ func (h *Handler) CreateOrder(c *fiber.Ctx) error {
 
 // GetOrder GET /orders/:id - Get an order
 func (h *Handler) GetOrder(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
+		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id", "details": err.Error()})
 	}
 
 	id, err := strconv.ParseUint(c.Params("id"), 10, 32)
@@ -249,11 +261,11 @@ func (h *Handler) GetOrder(c *fiber.Ctx) error {
 
 	order, err := h.orderRepo.GetByID(uint(id))
 	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "order not found"})
+		return c.Status(404).JSON(fiber.Map{"error": "order not found", "order_id": id, "shop_id": shopID, "details": err.Error()})
 	}
 
-	if order.ShopID != uint(shopID) {
-		return c.Status(403).JSON(fiber.Map{"error": "not authorized"})
+	if order.ShopID != shopID {
+		return c.Status(403).JSON(fiber.Map{"error": "not authorized", "order_shop": order.ShopID, "user_shop": shopID})
 	}
 
 	return c.JSON(order)
@@ -261,7 +273,7 @@ func (h *Handler) GetOrder(c *fiber.Ctx) error {
 
 // UpdateOrderStatus PUT /orders/:id/status - Update order status
 func (h *Handler) UpdateOrderStatus(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -276,7 +288,7 @@ func (h *Handler) UpdateOrderStatus(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "order not found"})
 	}
 
-	if order.ShopID != uint(shopID) {
+	if order.ShopID != shopID {
 		return c.Status(403).JSON(fiber.Map{"error": "not authorized"})
 	}
 
@@ -311,7 +323,7 @@ func (h *Handler) UpdateOrderStatus(c *fiber.Ctx) error {
 
 // DeleteOrder DELETE /orders/:id - Delete an order
 func (h *Handler) DeleteOrder(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Locals("shop_id").(string), 10, 32)
+	shopID, err := getShopID(c)
 	if err != nil {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid shop id"})
 	}
@@ -326,7 +338,7 @@ func (h *Handler) DeleteOrder(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "order not found"})
 	}
 
-	if order.ShopID != uint(shopID) {
+	if order.ShopID != shopID {
 		return c.Status(403).JSON(fiber.Map{"error": "not authorized"})
 	}
 

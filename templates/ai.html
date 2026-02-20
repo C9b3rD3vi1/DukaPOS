@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00A650">
+  <title>AI Insights - DukaPOS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00A650',
+            'primary-dark': '#059669',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes progressBar {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .animate-slide-in { animation: slideIn 0.3s ease-out; }
+    .animate-progress { animation: progressBar 3s linear forwards; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 h-16">
+    <div class="max-w-full mx-auto px-4 h-full flex items-center justify-between">
+      <div class="flex items-center">
+        <button onclick="toggleSidebar()" class="md:hidden p-2 -ml-2 mr-2 text-gray-600">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
+            <i data-lucide="shopping-bag" class="text-white w-5 h-5"></i>
+          </div>
+          <span class="text-lg font-bold text-gray-900">DukaPOS</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar Overlay (mobile only) -->
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 z-40 transform -translate-x-full transition-transform duration-300 md:translate-x-0 overflow-y-auto">
+    <nav class="p-4 space-y-1">
+      <a href="/dashboard" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        Dashboard
+      </a>
+      <a href="/products" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        Products
+      </a>
+      <a href="/sales" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        Sales
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/customers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="users" class="w-5 h-5"></i>
+        Customers
+      </a>
+      <a href="/suppliers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="truck" class="w-5 h-5"></i>
+        Suppliers
+      </a>
+      <a href="/orders" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+        Purchase Orders
+      </a>
+      <a href="/mpesa" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="smartphone" class="w-5 h-5"></i>
+        M-Pesa
+      </a>
+      <a href="/staff" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="user-cog" class="w-5 h-5"></i>
+        Staff
+      </a>
+      <a href="/ai" class="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary rounded-lg font-medium">
+        <i data-lucide="brain" class="w-5 h-5"></i>
+        AI Insights
+      </a>
+      <a href="/sms" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="message-square" class="w-5 h-5"></i>
+        SMS
+      </a>
+      <a href="/email" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="mail" class="w-5 h-5"></i>
+        Email
+      </a>
+      <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        Settings
+      </a>
+      <a href="/billing" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="credit-card" class="w-5 h-5"></i>
+        Billing
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition">
+        <i data-lucide="log-out" class="w-5 h-5"></i>
+        Logout
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="pt-16 md:pl-64 min-h-screen">
+    <div class="p-4 md:p-6 lg:p-8 max-w-7xl">
+      <!-- Page Header -->
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">AI Insights</h1>
+        <p class="text-gray-500 mt-1">Smart predictions for your business</p>
+      </div>
+
+      <!-- AI Feature Banner -->
+      <div id="aiBanner" class="hidden bg-gradient-to-r from-purple-600 to-blue-600 rounded-2xl p-6 md:p-8 text-white mb-6">
+        <div class="flex items-center gap-4 mb-4">
+          <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
+            <i data-lucide="sparkles" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <h2 class="text-xl font-bold">AI-Powered Insights</h2>
+            <p class="text-white/80">Get predictions and recommendations for your business</p>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-white/10 rounded-xl p-4">
+            <i data-lucide="trending-up" class="w-5 h-5 mb-2"></i>
+            <p class="font-medium">Sales Forecasting</p>
+            <p class="text-sm text-white/70">Predict future sales trends</p>
+          </div>
+          <div class="bg-white/10 rounded-xl p-4">
+            <i data-lucide="package" class="w-5 h-5 mb-2"></i>
+            <p class="font-medium">Stock Optimization</p>
+            <p class="text-sm text-white/70">Smart reorder suggestions</p>
+          </div>
+          <div class="bg-white/10 rounded-xl p-4">
+            <i data-lucide="shopping-cart" class="w-5 h-5 mb-2"></i>
+            <p class="font-medium">Product Recommendations</p>
+            <p class="text-sm text-white/70">Best-selling item insights</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Upgrade Banner -->
+      <div id="upgradeBanner" class="bg-amber-50 border border-amber-200 rounded-2xl p-6 mb-6">
+        <div class="flex flex-col md:flex-row items-center gap-4 text-center md:text-left">
+          <div class="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <i data-lucide="sparkles" class="w-6 h-6 text-amber-600"></i>
+          </div>
+          <div class="flex-1">
+            <h3 class="font-semibold text-gray-900">Unlock AI Insights</h3>
+            <p class="text-sm text-gray-600 mt-1">Upgrade to Business Plan to access AI-powered sales forecasting, stock optimization, and product recommendations.</p>
+          </div>
+          <button onclick="upgradePlan()" class="px-6 py-2.5 bg-amber-500 text-white rounded-lg font-medium hover:bg-amber-600 transition">
+            Upgrade to Business
+          </button>
+        </div>
+      </div>
+
+      <!-- AI Content (hidden until upgrade) -->
+      <div id="aiContent" class="hidden space-y-6">
+        <!-- Sales Forecast -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h2 class="font-semibold text-gray-900">Sales Forecast</h2>
+              <p class="text-sm text-gray-500">Predicted sales for next 7 days</p>
+            </div>
+            <div class="flex items-center gap-2 text-green-600 bg-green-50 px-3 py-1 rounded-full">
+              <i data-lucide="trending-up" class="w-4 h-4"></i>
+              <span class="text-sm font-medium" id="forecastGrowth">+12%</span>
+            </div>
+          </div>
+          <canvas id="forecastChart" height="100"></canvas>
+        </div>
+
+        <!-- Stock Recommendations -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+            <h2 class="font-semibold text-gray-900 mb-4">Stock Recommendations</h2>
+            <div id="stockRecommendations" class="space-y-3">
+              <div class="p-4 bg-red-50 rounded-xl border border-red-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="alert-circle" class="w-5 h-5 text-red-600"></i>
+                    <span class="font-medium text-gray-900">Milk 500ml</span>
+                  </div>
+                  <span class="text-sm text-red-600 font-medium">Reorder Now</span>
+                </div>
+                <p class="text-sm text-gray-600 mt-1">Current: 5 units | Recommended: 50 units</p>
+              </div>
+              <div class="p-4 bg-yellow-50 rounded-xl border border-yellow-100">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="alert-triangle" class="w-5 h-5 text-yellow-600"></i>
+                    <span class="font-medium text-gray-900">Bread</span>
+                  </div>
+                  <span class="text-sm text-yellow-600 font-medium">Stock Low</span>
+                </div>
+                <p class="text-sm text-gray-600 mt-1">Current: 8 units | Recommended: 30 units</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Products Prediction -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6">
+            <h2 class="font-semibold text-gray-900 mb-4">Trending Products (Next Week)</h2>
+            <div id="trendingProducts" class="space-y-3">
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-3">
+                  <span class="w-6 h-6 bg-primary text-white rounded-full flex items-center justify-center text-sm font-bold">1</span>
+                  <span class="font-medium text-gray-900">Coca Cola 500ml</span>
+                </div>
+                <span class="text-sm text-green-600 font-medium">+45%</span>
+              </div>
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-3">
+                  <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-sm font-bold">2</span>
+                  <span class="font-medium text-gray-900">Bread</span>
+                </div>
+                <span class="text-sm text-green-600 font-medium">+32%</span>
+              </div>
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-3">
+                  <span class="w-6 h-6 bg-gray-400 text-white rounded-full flex items-center justify-center text-sm font-bold">3</span>
+                  <span class="font-medium text-gray-900">Milk 500ml</span>
+                </div>
+                <span class="text-sm text-green-600 font-medium">+28%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Business Insights -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 md:p-6 mb-6">
+          <div class="flex items-center justify-between mb-4">
+            <h2 class="font-semibold text-gray-900">Business Insights</h2>
+            <button onclick="generateForecast()" class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm font-medium">
+              <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+              Generate Forecast
+            </button>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="p-4 bg-blue-50 rounded-xl border border-blue-100">
+              <i data-lucide="calendar" class="w-5 h-5 text-blue-600 mb-2"></i>
+              <p class="font-medium text-gray-900">Peak Day</p>
+              <p class="text-sm text-gray-600" id="peakDay">Loading...</p>
+            </div>
+            <div class="p-4 bg-purple-50 rounded-xl border border-purple-100">
+              <i data-lucide="clock" class="w-5 h-5 text-purple-600 mb-2"></i>
+              <p class="font-medium text-gray-900">Peak Hours</p>
+              <p class="text-sm text-gray-600" id="peakHours">Loading...</p>
+            </div>
+            <div class="p-4 bg-green-50 rounded-xl border border-green-100">
+              <i data-lucide="banknote" class="w-5 h-5 text-green-600 mb-2"></i>
+              <p class="font-medium text-gray-900">Avg. Order Value</p>
+              <p class="text-sm text-gray-600" id="avgOrderValue">Loading...</p>
+            </div>
+          </div>
+          
+          <!-- Inventory Value Section -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="p-4 bg-orange-50 rounded-xl border border-orange-100">
+              <i data-lucide="package" class="w-5 h-5 text-orange-600 mb-2"></i>
+              <p class="font-medium text-gray-900">Inventory Value</p>
+              <p class="text-2xl font-bold text-orange-700" id="inventoryValue">Loading...</p>
+              <p class="text-xs text-gray-500 mt-1">Total cost of current stock</p>
+            </div>
+            <div class="p-4 bg-indigo-50 rounded-xl border border-indigo-100">
+              <i data-lucide="trending-up" class="w-5 h-5 text-indigo-600 mb-2"></i>
+              <p class="font-medium text-gray-900">Profit Potential</p>
+              <p class="text-2xl font-bold text-indigo-700" id="profitPotential">Loading...</p>
+              <p class="text-xs text-gray-500 mt-1">Estimated profit from current inventory</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden pb-safe">
+    <div class="flex justify-around items-center h-16">
+      <a href="/dashboard" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="home" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Home</span>
+      </a>
+      <a href="/products" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Products</span>
+      </a>
+      <a href="/dashboard" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center -mt-4 shadow-lg">
+          <i data-lucide="plus" class="w-6 h-6 text-white"></i>
+        </div>
+        <span class="text-xs mt-1">Sell</span>
+      </a>
+      <a href="/sales" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Sales</span>
+      </a>
+      <button onclick="toggleSidebar()" class="flex flex-col items-center justify-center w-full h-full text-primary">
+        <i data-lucide="menu" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Menu</span>
+      </button>
+    </div>
+  </nav>
+
+  <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2"></div>
+
+  <script>
+    lucide.createIcons();
+    
+    const token = localStorage.getItem('dukapos_token');
+    if (!token) window.location.href = '/login';
+    
+    const shop = JSON.parse(localStorage.getItem('dukapos_shop') || '{}');
+    const shopId = shop.id || 1;
+    
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+    }
+    
+    function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) {
+    const newContainer = document.createElement('div');
+    newContainer.id = 'toast-container';
+    newContainer.className = 'fixed top-20 right-4 z-50 flex flex-col gap-2';
+    document.body.appendChild(newContainer);
+  }
+  
+  const toast = document.createElement('div');
+  toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transform transition-all duration-300 min-w-[280px] max-w-md animate-slide-in relative overflow-hidden`;
+  
+  const colors = { success: 'bg-green-500 text-white', error: 'bg-red-500 text-white', warning: 'bg-amber-500 text-white', info: 'bg-blue-500 text-white' };
+  const icons = {
+    success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+    error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+    warning: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+    info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+  };
+  
+  toast.className += ` ${colors[type] || colors.info}`;
+  toast.innerHTML = `<div class="flex-shrink-0">${icons[type] || icons.info}</div><div class="flex-1 text-sm font-medium">${msg}</div><button onclick="this.parentElement.remove()" class="flex-shrink-0 opacity-70 hover:opacity-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button><div class="absolute bottom-0 left-0 h-1 bg-white/30 animate-progress" style="animation-duration: 3s"></div>`;
+  
+  document.getElementById('toast-container').appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+    
+    async function api(endpoint, options = {}) {
+      const res = await fetch(`/api/v1${endpoint}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...options.headers }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+    
+    async function checkPlan() {
+      try {
+        const res = await fetch(`/api/v1/shop/profile`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        
+        const plan = data.plan || 'free';
+        
+        if (plan === 'business' || plan === 'enterprise') {
+          document.getElementById('upgradeBanner').classList.add('hidden');
+          document.getElementById('aiBanner').classList.remove('hidden');
+          document.getElementById('aiContent').classList.remove('hidden');
+          initForecastChart();
+          loadAIInsights();
+        }
+      } catch (err) {
+        console.error('Failed to check plan', err);
+      }
+    }
+    
+    function initForecastChart() {
+      const ctx = document.getElementById('forecastChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+          datasets: [{
+            label: 'Forecasted Sales',
+            data: [12500, 13200, 11800, 14500, 16800, 21500, 18200],
+            borderColor: '#00A650',
+            backgroundColor: 'rgba(0, 166, 80, 0.1)',
+            fill: true,
+            tension: 0.4
+          }, {
+            label: 'Last Week',
+            data: [11200, 12100, 10500, 13200, 15200, 19800, 16800],
+            borderColor: '#9CA3AF',
+            backgroundColor: 'transparent',
+            borderDash: [5, 5],
+            tension: 0.4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: {
+              position: 'bottom'
+            }
+          },
+          scales: {
+            y: {
+              beginAtZero: true,
+              ticks: {
+                callback: function(value) {
+                  return 'KSh ' + value.toLocaleString();
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+    
+    async function loadAIInsights() {
+      try {
+        // Load restock recommendations
+        const restockRes = await fetch(`/api/v1/ai/restock/${shopId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (restockRes.ok) {
+          const restockData = await restockRes.json();
+          if (restockData.recommendations && restockData.recommendations.length > 0) {
+            document.getElementById('stockRecommendations').innerHTML = restockData.recommendations.slice(0, 5).map(r => `
+              <div class="p-4 ${r.urgency === 'high' ? 'bg-red-50 border-red-100' : 'bg-yellow-50 border-yellow-100'} rounded-xl border">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center gap-3">
+                    <i data-lucide="${r.urgency === 'high' ? 'alert-circle' : 'alert-triangle'}" class="w-5 h-5 ${r.urgency === 'high' ? 'text-red-600' : 'text-yellow-600'}"></i>
+                    <span class="font-medium text-gray-900">${r.product_name}</span>
+                  </div>
+                  <span class="text-sm ${r.urgency === 'high' ? 'text-red-600' : 'text-yellow-600'} font-medium">${r.action}</span>
+                </div>
+                <p class="text-sm text-gray-600 mt-1">Current: ${r.current_stock} units | Recommended: ${r.recommended_stock} units</p>
+              </div>
+            `).join('');
+          }
+        }
+        
+        // Load trending products
+        const trendsRes = await fetch(`/api/v1/ai/trends/${shopId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (trendsRes.ok) {
+          const trendsData = await trendsRes.json();
+          if (trendsData.products && trendsData.products.length > 0) {
+            document.getElementById('trendingProducts').innerHTML = trendsData.products.slice(0, 5).map((p, i) => `
+              <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div class="flex items-center gap-3">
+                  <span class="w-6 h-6 ${i < 3 ? 'bg-primary' : 'bg-gray-400'} text-white rounded-full flex items-center justify-center text-sm font-bold">${i + 1}</span>
+                  <span class="font-medium text-gray-900">${p.name}</span>
+                </div>
+                <span class="text-sm text-green-600 font-medium">+${p.growth}%</span>
+              </div>
+            `).join('');
+          }
+        }
+        
+        // Load inventory value
+        const inventoryRes = await fetch(`/api/v1/ai/inventory-value/${shopId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (inventoryRes.ok) {
+          const inventoryData = await inventoryRes.json();
+          if (inventoryData.total_value !== undefined) {
+            document.getElementById('inventoryValue').textContent = `KSh ${Math.round(inventoryData.total_value).toLocaleString()}`;
+          }
+          if (inventoryData.profit_potential !== undefined) {
+            document.getElementById('profitPotential').textContent = `KSh ${Math.round(inventoryData.profit_potential).toLocaleString()}`;
+          }
+        }
+        
+        // Load analytics for peak hours and days
+        const analyticsRes = await fetch(`/api/v1/ai/analytics/${shopId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (analyticsRes.ok) {
+          const analyticsData = await analyticsRes.json();
+          if (analyticsData.peak_day) {
+            document.getElementById('peakDay').textContent = analyticsData.peak_day;
+          }
+          if (analyticsData.peak_hours) {
+            document.getElementById('peakHours').textContent = analyticsData.peak_hours;
+          }
+          if (analyticsData.avg_order_value) {
+            document.getElementById('avgOrderValue').textContent = `KSh ${Math.round(analyticsData.avg_order_value).toLocaleString()}`;
+          }
+        }
+        
+        lucide.createIcons();
+      } catch (err) {
+        console.error('Failed to load AI insights', err);
+      }
+    }
+    
+    async function generateForecast() {
+      try {
+        showToast('Generating forecast...', 'success');
+        const res = await fetch(`/api/v1/ai/forecast/${shopId}`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          const forecastData = await res.json();
+          showToast('Forecast generated successfully!', 'success');
+          // Refresh the insights to show new forecast data
+          loadAIInsights();
+        } else {
+          const error = await res.json();
+          showToast(error.error || 'Failed to generate forecast', 'error');
+        }
+      } catch (err) {
+        console.error('Failed to generate forecast', err);
+        showToast('Error generating forecast', 'error');
+      }
+    }
+    
+    function upgradePlan() {
+      showToast('Redirecting to upgrade page...', 'success');
+      setTimeout(() => {
+        window.location.href = '/settings';
+      }, 1500);
+    }
+    
+    checkPlan();
+  </script>
+</body>
+</html>

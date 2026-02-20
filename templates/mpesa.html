@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00A650">
+  <title>M-Pesa - DukaPOS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00A650',
+            'primary-dark': '#059669',
+            mpesa: '#FDB913',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes progressBar {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .animate-slide-in { animation: slideIn 0.3s ease-out; }
+    .animate-progress { animation: progressBar 3s linear forwards; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 h-16">
+    <div class="max-w-full mx-auto px-4 h-full flex items-center justify-between">
+      <div class="flex items-center">
+        <button onclick="toggleSidebar()" class="md:hidden p-2 -ml-2 mr-2 text-gray-600">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
+            <i data-lucide="shopping-bag" class="text-white w-5 h-5"></i>
+          </div>
+          <span class="text-lg font-bold text-gray-900">DukaPOS</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar Overlay (mobile only) -->
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 z-40 transform -translate-x-full transition-transform duration-300 md:translate-x-0 overflow-y-auto">
+    <nav class="p-4 space-y-1">
+      <a href="/dashboard" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        Dashboard
+      </a>
+      <a href="/products" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        Products
+      </a>
+      <a href="/sales" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        Sales
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/customers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="users" class="w-5 h-5"></i>
+        Customers
+      </a>
+      <a href="/suppliers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="truck" class="w-5 h-5"></i>
+        Suppliers
+      </a>
+      <a href="/orders" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+        Orders
+      </a>
+      <a href="/mpesa" class="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary rounded-lg font-medium">
+        <i data-lucide="smartphone" class="w-5 h-5"></i>
+        M-Pesa
+      </a>
+      <a href="/staff" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="user-cog" class="w-5 h-5"></i>
+        Staff
+      </a>
+      <a href="/ai-insights" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="brain" class="w-5 h-5"></i>
+        AI Insights
+      </a>
+      <a href="/api-keys" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="key" class="w-5 h-5"></i>
+        API Keys
+      </a>
+      <a href="/sms" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="message-square" class="w-5 h-5"></i>
+        SMS
+      </a>
+      <a href="/email" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="mail" class="w-5 h-5"></i>
+        Email
+      </a>
+      <a href="/webhooks" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="webhook" class="w-5 h-5"></i>
+        Webhooks
+      </a>
+      <a href="/reports" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="bar-chart-3" class="w-5 h-5"></i>
+        Reports
+      </a>
+      <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        Settings
+      </a>
+      <a href="/billing" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="credit-card" class="w-5 h-5"></i>
+        Billing
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition">
+        <i data-lucide="log-out" class="w-5 h-5"></i>
+        Logout
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="pt-16 md:pl-64 min-h-screen pb-20 md:pb-0">
+    <div class="p-4 md:p-6 lg:p-8 max-w-7xl">
+      <!-- Upgrade Banner for Free Plan -->
+      <div id="upgradeBanner" class="bg-gradient-to-r from-mpesa to-yellow-400 rounded-xl p-6 mb-6 text-gray-900">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="text-xl font-bold mb-1">Pro Feature</h2>
+            <p class="text-sm opacity-90">M-Pesa integration is available on Pro plan and above.</p>
+          </div>
+          <a href="/" class="px-6 py-2 bg-gray-900 text-white rounded-lg font-medium hover:bg-gray-800 transition">
+            Upgrade Now
+          </a>
+        </div>
+      </div>
+
+      <!-- M-Pesa Content (Hidden for Free Plan) -->
+      <div id="mpesaContent" class="hidden">
+        <!-- Page Header -->
+        <div class="mb-6">
+          <h1 class="text-2xl font-bold text-gray-900">M-Pesa Payments</h1>
+          <p class="text-gray-500">Manage mobile payments and transactions</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div class="bg-gradient-to-br from-mpesa to-yellow-400 rounded-xl p-5 text-gray-900">
+            <div class="flex items-center gap-3 mb-2">
+              <i data-lucide="wallet" class="w-6 h-6"></i>
+              <span class="font-medium">Today's M-Pesa</span>
+            </div>
+            <p class="text-2xl font-bold" id="todayMpesa">KSh 0</p>
+          </div>
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2 text-gray-600">
+              <i data-lucide="banknote" class="w-6 h-6"></i>
+              <span class="font-medium">Account Balance</span>
+            </div>
+            <p class="text-2xl font-bold text-gray-900" id="mpesaBalance">KSh 0</p>
+            <button onclick="loadMpesaBalance()" class="mt-2 text-sm text-primary hover:underline">Refresh</button>
+          </div>
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2 text-gray-600">
+              <i data-lucide="check-circle" class="w-6 h-6"></i>
+              <span class="font-medium">Successful</span>
+            </div>
+            <p class="text-2xl font-bold text-gray-900" id="successfulCount">0</p>
+          </div>
+          <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+            <div class="flex items-center gap-3 mb-2 text-gray-600">
+              <i data-lucide="clock" class="w-6 h-6"></i>
+              <span class="font-medium">Pending</span>
+            </div>
+            <p class="text-2xl font-bold text-gray-900" id="pendingCount">0</p>
+          </div>
+        </div>
+
+        <!-- Payment Forms Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <!-- C2B Payment Form (Customer to Business) -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="flex items-center gap-2 mb-4">
+              <i data-lucide="arrow-down-circle" class="w-5 h-5 text-green-600"></i>
+              <h2 class="text-lg font-semibold text-gray-900">Receive Payment (C2B)</h2>
+            </div>
+            <p class="text-sm text-gray-500 mb-4">Request payment from customers via M-Pesa STK push</p>
+            <form id="mpesaForm" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Customer Phone</label>
+                <input type="tel" id="customerPhone" placeholder="254700000000" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Amount (KSh)</label>
+                <input type="number" id="paymentAmount" placeholder="100" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Reference (Optional)</label>
+                <input type="text" id="paymentReference" placeholder="Invoice #123" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+              </div>
+              <button type="submit" class="w-full py-3 bg-mpesa text-gray-900 rounded-lg font-semibold hover:bg-yellow-400 transition flex items-center justify-center gap-2">
+                <i data-lucide="smartphone" class="w-5 h-5"></i>
+                Request Payment
+              </button>
+            </form>
+          </div>
+
+          <!-- B2C Payment Form (Business to Customer) -->
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <div class="flex items-center gap-2 mb-4">
+              <i data-lucide="arrow-up-circle" class="w-5 h-5 text-blue-600"></i>
+              <h2 class="text-lg font-semibold text-gray-900">Send Payment (B2C)</h2>
+            </div>
+            <p class="text-sm text-gray-500 mb-4">Send money to customers (refunds, payouts, incentives)</p>
+            <form id="b2cForm" class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Recipient Phone</label>
+                <input type="tel" id="b2cPhone" placeholder="254700000000" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Amount (KSh)</label>
+                <input type="number" id="b2cAmount" placeholder="100" min="10" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Reason/Occasion</label>
+                <select id="b2cOccasion" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+                  <option value="refund">Refund</option>
+                  <option value="salary">Salary/Payout</option>
+                  <option value="bonus">Bonus/Incentive</option>
+                  <option value="reimbursement">Reimbursement</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <input type="text" id="b2cDescription" placeholder="Payment for refund" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+              </div>
+              <button type="submit" class="w-full py-3 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                <i data-lucide="send" class="w-5 h-5"></i>
+                Send Payment
+              </button>
+            </form>
+          </div>
+        </div>
+
+        <!-- Transactions List -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+          <div class="p-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-900">Recent Transactions</h2>
+          </div>
+          <div id="transactionsList">
+            <div class="p-8 flex justify-center">
+              <div class="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden pb-safe">
+    <div class="flex justify-around items-center h-16">
+      <a href="/dashboard" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="home" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Home</span>
+      </a>
+      <a href="/products" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Products</span>
+      </a>
+      <a href="/sales" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Sales</span>
+      </a>
+      <a href="/mpesa" class="flex flex-col items-center justify-center w-full h-full text-primary">
+        <i data-lucide="smartphone" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">M-Pesa</span>
+      </a>
+    </div>
+  </nav>
+
+  <!-- Toast -->
+  <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2"></div>
+
+  <script>
+    lucide.createIcons();
+    
+    const token = localStorage.getItem('dukapos_token');
+    if (!token) window.location.href = '/login';
+    
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+    }
+    
+    function showToast(msg, type = 'info') {
+  const container = document.getElementById('toast-container');
+  if (!container) {
+    const newContainer = document.createElement('div');
+    newContainer.id = 'toast-container';
+    newContainer.className = 'fixed top-20 right-4 z-50 flex flex-col gap-2';
+    document.body.appendChild(newContainer);
+  }
+  
+  const toast = document.createElement('div');
+  toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transform transition-all duration-300 min-w-[280px] max-w-md animate-slide-in relative overflow-hidden`;
+  
+  const colors = { success: 'bg-green-500 text-white', error: 'bg-red-500 text-white', warning: 'bg-amber-500 text-white', info: 'bg-blue-500 text-white' };
+  const icons = {
+    success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+    error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+    warning: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+    info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+  };
+  
+  toast.className += ` ${colors[type] || colors.info}`;
+  toast.innerHTML = `<div class="flex-shrink-0">${icons[type] || icons.info}</div><div class="flex-1 text-sm font-medium">${msg}</div><button onclick="this.parentElement.remove()" class="flex-shrink-0 opacity-70 hover:opacity-100"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button><div class="absolute bottom-0 left-0 h-1 bg-white/30 animate-progress" style="animation-duration: 3s"></div>`;
+  
+  document.getElementById('toast-container').appendChild(toast);
+  setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(100%)'; setTimeout(() => toast.remove(), 300); }, 3000);
+}
+    
+    async function checkPlan() {
+      try {
+        const res = await fetch('/api/v1/plan', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.plan === 'pro' || data.plan === 'business') {
+            document.getElementById('upgradeBanner').classList.add('hidden');
+            document.getElementById('mpesaContent').classList.remove('hidden');
+            loadTransactions();
+            loadMpesaBalance();
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    
+    async function loadMpesaBalance() {
+      try {
+        const res = await fetch('/api/v1/mpesa/balance', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          const data = await res.json();
+          document.getElementById('mpesaBalance').textContent = `KSh ${(data.balance || 0).toLocaleString()}`;
+        }
+      } catch (err) {
+        console.error('Failed to load M-Pesa balance', err);
+        document.getElementById('mpesaBalance').textContent = 'N/A';
+      }
+    }
+    
+    async function loadTransactions() {
+      try {
+        // Load both payments and transactions
+        const [paymentsRes, transactionsRes] = await Promise.all([
+          fetch('/api/v1/mpesa/payments', { headers: { 'Authorization': `Bearer ${token}` } }),
+          fetch('/api/v1/mpesa/transactions', { headers: { 'Authorization': `Bearer ${token}` } }).catch(() => null)
+        ]);
+        
+        const paymentsData = await paymentsRes.json();
+        let transactions = paymentsData.data || paymentsData || [];
+        
+        // Add transactions from the transactions endpoint if available
+        if (transactionsRes && transactionsRes.ok) {
+          const transactionsData = await transactionsRes.json();
+          const additionalTransactions = transactionsData.data || transactionsData || [];
+          // Merge and remove duplicates
+          const seen = new Set(transactions.map(t => t.id));
+          additionalTransactions.forEach(t => {
+            if (!seen.has(t.id)) {
+              transactions.push(t);
+              seen.add(t.id);
+            }
+          });
+          // Sort by date
+          transactions.sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+        }
+        
+        const successful = transactions.filter(t => t.status === 'completed');
+        const pending = transactions.filter(t => t.status === 'pending');
+        const total = successful.reduce((sum, t) => sum + (t.amount || 0), 0);
+        
+        document.getElementById('todayMpesa').textContent = `KSh ${total.toLocaleString()}`;
+        document.getElementById('successfulCount').textContent = successful.length;
+        document.getElementById('pendingCount').textContent = pending.length;
+        
+        const container = document.getElementById('transactionsList');
+        if (transactions.length === 0) {
+          container.innerHTML = '<div class="p-8 text-center text-gray-500">No transactions yet</div>';
+          return;
+        }
+        
+        container.innerHTML = transactions.slice(0, 10).map(t => `
+          <div class="flex items-center justify-between p-4 border-b border-gray-100 last:border-0">
+            <div class="flex-1 min-w-0">
+              <p class="font-medium text-gray-900 truncate">${t.customer_phone || t.recipient_phone || 'Unknown'}</p>
+              <p class="text-sm text-gray-500">${new Date(t.created_at).toLocaleString()}</p>
+              ${t.type === 'b2c' ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">B2C Payment</span>' : ''}
+            </div>
+            <div class="text-right flex items-center gap-3">
+              <div>
+                <p class="font-semibold text-gray-900">KSh ${(t.amount || 0).toLocaleString()}</p>
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${t.status === 'completed' ? 'bg-green-100 text-green-800' : t.status === 'pending' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}">${t.status}</span>
+              </div>
+              ${t.status === 'failed' && t.type !== 'b2c' ? `
+                <button onclick="retryPayment(${t.id})" class="p-2 text-yellow-600 hover:bg-yellow-50 rounded-lg transition" title="Retry Payment">
+                  <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        `).join('');
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    
+    document.getElementById('mpesaForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const data = {
+        phone: document.getElementById('customerPhone').value,
+        amount: parseInt(document.getElementById('paymentAmount').value),
+        reference: document.getElementById('paymentReference').value || undefined
+      };
+      
+      try {
+        const res = await fetch('/api/v1/mpesa/stk-push', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+          showToast('Payment request sent!', 'success');
+          e.target.reset();
+          setTimeout(loadTransactions, 3000);
+        } else {
+          const error = await res.json();
+          showToast(error.error || 'Failed to send request', 'error');
+        }
+      } catch (err) {
+        showToast('Error sending request', 'error');
+      }
+    });
+    
+    // B2C Payment Form
+    document.getElementById('b2cForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const amount = parseInt(document.getElementById('b2cAmount').value);
+      if (amount < 10) {
+        showToast('Minimum B2C amount is KSh 10', 'error');
+        return;
+      }
+      
+      if (!confirm(`Are you sure you want to send KSh ${amount.toLocaleString()} to ${document.getElementById('b2cPhone').value}?`)) {
+        return;
+      }
+      
+      const data = {
+        phone: document.getElementById('b2cPhone').value,
+        amount: amount,
+        occasion: document.getElementById('b2cOccasion').value,
+        description: document.getElementById('b2cDescription').value
+      };
+      
+      try {
+        const res = await fetch('/api/v1/mpesa/b2c', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify(data)
+        });
+        
+        if (res.ok) {
+          showToast('B2C payment initiated successfully!', 'success');
+          e.target.reset();
+          setTimeout(loadTransactions, 3000);
+          loadMpesaBalance();
+        } else {
+          const error = await res.json();
+          showToast(error.error || 'Failed to send B2C payment', 'error');
+        }
+      } catch (err) {
+        showToast('Error sending B2C payment', 'error');
+      }
+    });
+    
+    // Retry failed payment
+    async function retryPayment(paymentId) {
+      try {
+        const res = await fetch(`/api/v1/mpesa/payments/${paymentId}/retry`, {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          showToast('Payment retry initiated!', 'success');
+          setTimeout(loadTransactions, 3000);
+        } else {
+          const error = await res.json();
+          showToast(error.error || 'Failed to retry payment', 'error');
+        }
+      } catch (err) {
+        showToast('Error retrying payment', 'error');
+      }
+    }
+    
+    checkPlan();
+  </script>
+</body>
+</html>

@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00A650">
+  <title>Purchase Orders - DukaPOS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00A650',
+            'primary-dark': '#059669',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes progressBar {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .animate-slide-in { animation: slideIn 0.3s ease-out; }
+    .animate-progress { animation: progressBar 3s linear forwards; }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 h-16">
+    <div class="max-w-full mx-auto px-4 h-full flex items-center justify-between">
+      <div class="flex items-center">
+        <button onclick="toggleSidebar()" class="md:hidden p-2 -ml-2 mr-2 text-gray-600">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
+            <i data-lucide="shopping-bag" class="text-white w-5 h-5"></i>
+          </div>
+          <span class="text-lg font-bold text-gray-900">DukaPOS</span>
+        </a>
+      </div>
+      <button onclick="openModal('addOrderModal')" class="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm">
+        <i data-lucide="plus" class="w-4 h-4"></i>
+        <span class="hidden sm:inline">New Order</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Sidebar Overlay (mobile only) -->
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 z-40 transform -translate-x-full transition-transform duration-300 md:translate-x-0 overflow-y-auto">
+    <nav class="p-4 space-y-1">
+      <a href="/dashboard" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        Dashboard
+      </a>
+      <a href="/products" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        Products
+      </a>
+      <a href="/sales" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        Sales
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/customers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="users" class="w-5 h-5"></i>
+        Customers
+      </a>
+      <a href="/suppliers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="truck" class="w-5 h-5"></i>
+        Suppliers
+      </a>
+      <a href="/orders" class="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary rounded-lg font-medium">
+        <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+        Purchase Orders
+      </a>
+      <a href="/mpesa" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="smartphone" class="w-5 h-5"></i>
+        M-Pesa
+      </a>
+      <a href="/staff" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="user-cog" class="w-5 h-5"></i>
+        Staff
+      </a>
+      <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        Settings
+      </a>
+      <a href="/billing" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="credit-card" class="w-5 h-5"></i>
+        Billing
+      </a>
+      <a href="/sms" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="message-square" class="w-5 h-5"></i>
+        SMS
+      </a>
+      <a href="/email" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="mail" class="w-5 h-5"></i>
+        Email
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition">
+        <i data-lucide="log-out" class="w-5 h-5"></i>
+        Logout
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="pt-16 md:pl-64 min-h-screen">
+    <div class="p-4 md:p-6 lg:p-8 max-w-7xl">
+      <!-- Page Header -->
+      <div class="mb-6">
+        <h1 class="text-2xl font-bold text-gray-900">Purchase Orders</h1>
+        <p class="text-gray-500 mt-1">Manage orders from suppliers</p>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Total Orders</p>
+              <p class="text-2xl font-bold text-gray-900" id="totalOrders">0</p>
+            </div>
+            <div class="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="clipboard-list" class="w-5 h-5 text-blue-600"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Pending</p>
+              <p class="text-2xl font-bold text-yellow-600" id="pendingOrders">0</p>
+            </div>
+            <div class="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="clock" class="w-5 h-5 text-yellow-600"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Received</p>
+              <p class="text-2xl font-bold text-green-600" id="receivedOrders">0</p>
+            </div>
+            <div class="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="check-circle" class="w-5 h-5 text-green-600"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-4 md:p-5 shadow-sm border border-gray-100">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-500">Total Value</p>
+              <p class="text-2xl font-bold text-gray-900" id="totalValue">KSh 0</p>
+            </div>
+            <div class="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+              <i data-lucide="banknote" class="w-5 h-5 text-purple-600"></i>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Orders List -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="p-4 md:p-5 border-b border-gray-100">
+          <div class="flex items-center justify-between">
+            <h2 class="font-semibold text-gray-900">Purchase Orders</h2>
+            <a href="/suppliers" class="text-primary text-sm font-medium hover:underline flex items-center gap-1">
+              <i data-lucide="truck" class="w-4 h-4"></i>
+              View Suppliers
+            </a>
+          </div>
+        </div>
+        <div id="ordersList">
+          <div class="p-8 flex justify-center">
+            <div class="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden pb-safe">
+    <div class="flex justify-around items-center h-16">
+      <a href="/dashboard" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="home" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Home</span>
+      </a>
+      <a href="/products" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Products</span>
+      </a>
+      <a href="/dashboard" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center -mt-4 shadow-lg">
+          <i data-lucide="plus" class="w-6 h-6 text-white"></i>
+        </div>
+        <span class="text-xs mt-1">Sell</span>
+      </a>
+      <a href="/sales" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Sales</span>
+      </a>
+      <button onclick="toggleSidebar()" class="flex flex-col items-center justify-center w-full h-full text-primary">
+        <i data-lucide="menu" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Menu</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Add Order Modal -->
+  <div id="addOrderModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-[500px] sm:rounded-2xl rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Create Purchase Order</h3>
+        <button onclick="closeModal('addOrderModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="addOrderForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+          <select name="supplier_id" id="orderSupplierSelect" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+            <option value="">Select supplier...</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Product</label>
+          <select name="product_id" id="orderProductSelect" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+            <option value="">Select product...</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Quantity</label>
+            <input type="number" name="quantity" value="1" min="1" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Unit Cost</label>
+            <input type="number" name="unit_cost" placeholder="0.00" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Expected Delivery</label>
+          <input type="date" name="expected_delivery" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+          <textarea name="notes" rows="2" placeholder="Additional notes..." class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary resize-none"></textarea>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-4 text-center">
+          <p class="text-sm text-gray-500">Order Total</p>
+          <p class="text-2xl font-bold text-gray-900" id="orderTotalDisplay">KSh 0</p>
+        </div>
+        <button type="submit" class="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition">Create Order</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Order Details Modal -->
+  <div id="orderDetailsModal" class="fixed inset-0 z-50 hidden">
+    <div class="absolute inset-0 bg-black/50" onclick="closeModal('orderDetailsModal')"></div>
+    <div class="absolute inset-x-4 top-[10%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-full md:max-w-lg bg-white rounded-2xl shadow-2xl max-h-[80vh] overflow-y-auto">
+      <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-gray-900">Order Details</h3>
+        <button onclick="closeModal('orderDetailsModal')" class="p-2 hover:bg-gray-100 rounded-lg">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="orderDetailsContent" class="p-6">
+        <div class="p-8 flex justify-center">
+          <div class="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2"></div>
+
+  <script>
+    lucide.createIcons();
+    
+    const token = localStorage.getItem('dukapos_token');
+    if (!token) window.location.href = '/login';
+    
+    const shop = JSON.parse(localStorage.getItem('dukapos_shop') || '{}');
+    const shopId = shop.id || 1;
+    
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+    }
+    
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById(id).classList.add('flex');
+      if (id === 'addOrderModal') {
+        loadSuppliersForOrder();
+        loadProductsForOrder();
+      }
+    }
+    
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      document.getElementById(id).classList.remove('flex');
+    }
+    
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) {
+        const newContainer = document.createElement('div');
+        newContainer.id = 'toast-container';
+        newContainer.className = 'fixed top-20 right-4 z-50 flex flex-col gap-2';
+        document.body.appendChild(newContainer);
+      }
+      
+      const toast = document.createElement('div');
+      toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transform transition-all duration-300 min-w-[280px] max-w-md animate-slide-in relative overflow-hidden`;
+      
+      const colors = {
+        success: 'bg-green-500 text-white',
+        error: 'bg-red-500 text-white',
+        warning: 'bg-amber-500 text-white',
+        info: 'bg-blue-500 text-white'
+      };
+      
+      const icons = {
+        success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+        error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+        warning: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+        info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+      };
+      
+      toast.className += ` ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <div class="flex-shrink-0">${icons[type] || icons.info}</div>
+        <div class="flex-1 text-sm font-medium">${msg}</div>
+        <button onclick="this.parentElement.remove()" class="flex-shrink-0 opacity-70 hover:opacity-100">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div class="absolute bottom-0 left-0 h-1 bg-white/30 animate-progress" style="animation-duration: 3s"></div>
+      `;
+      
+      document.getElementById('toast-container').appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+    
+    function formatNumber(num) {
+      return new Intl.NumberFormat('en-KE').format(Math.round(num || 0));
+    }
+    
+    async function api(endpoint, options = {}) {
+      const res = await fetch(`/api/v1${endpoint}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...options.headers }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Request failed');
+      return data;
+    }
+    
+    async function loadSuppliersForOrder() {
+      try {
+        const data = await api(`/suppliers`);
+        const suppliers = data.data || data || [];
+        const select = document.getElementById('orderSupplierSelect');
+        
+        if (suppliers.length === 0) {
+          select.innerHTML = '<option value="">No suppliers available</option>';
+          return;
+        }
+        
+        select.innerHTML = '<option value="">Select supplier...</option>' + 
+          suppliers.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+      } catch (e) {
+        console.error('Failed to load suppliers', e);
+        document.getElementById('orderSupplierSelect').innerHTML = '<option>Failed to load</option>';
+      }
+    }
+    
+    async function loadProductsForOrder() {
+      try {
+        const data = await api(`/products`);
+        const products = data.data || data || [];
+        const select = document.getElementById('orderProductSelect');
+        
+        if (products.length === 0) {
+          select.innerHTML = '<option value="">No products available</option>';
+          return;
+        }
+        
+        select.innerHTML = '<option value="">Select product...</option>' + 
+          products.map(p => `<option value="${p.id}" data-cost="${p.cost_price || 0}">${p.name}</option>`).join('');
+      } catch (e) {
+        console.error('Failed to load products', e);
+        document.getElementById('orderProductSelect').innerHTML = '<option>Failed to load</option>';
+      }
+    }
+    
+    function updateOrderTotal() {
+      const qty = parseInt(document.querySelector('input[name="quantity"]').value) || 1;
+      const cost = parseFloat(document.querySelector('input[name="unit_cost"]').value) || 0;
+      document.getElementById('orderTotalDisplay').textContent = `KSh ${formatNumber(qty * cost)}`;
+    }
+    
+    document.getElementById('orderProductSelect')?.addEventListener('change', function() {
+      const selected = this.options[this.selectedIndex];
+      const costPrice = selected.dataset.cost || 0;
+      document.querySelector('input[name="unit_cost"]').value = costPrice;
+      updateOrderTotal();
+    });
+    
+    document.querySelector('input[name="quantity"]')?.addEventListener('input', updateOrderTotal);
+    document.querySelector('input[name="unit_cost"]')?.addEventListener('input', updateOrderTotal);
+    
+    async function loadOrders() {
+      try {
+        const data = await api(`/orders`);
+        const orders = data.data || data || [];
+        
+        let totalValue = 0, pending = 0, received = 0;
+        orders.forEach(o => {
+          totalValue += o.total_amount || 0;
+          if (o.status === 'pending') pending++;
+          if (o.status === 'delivered') received++;
+        });
+        
+        document.getElementById('totalOrders').textContent = orders.length;
+        document.getElementById('pendingOrders').textContent = pending;
+        document.getElementById('receivedOrders').textContent = received;
+        document.getElementById('totalValue').textContent = `KSh ${formatNumber(totalValue)}`;
+        
+        const container = document.getElementById('ordersList');
+        
+        if (!orders || orders.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12">
+              <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="clipboard-list" class="w-8 h-8 text-gray-400"></i>
+              </div>
+              <p class="text-gray-500 mb-2">No orders yet</p>
+              <p class="text-sm text-gray-400 mb-4">Create your first purchase order</p>
+              <button onclick="openModal('addOrderModal')" class="px-4 py-2 bg-primary text-white rounded-lg">New Order</button>
+            </div>`;
+          lucide.createIcons();
+          return;
+        }
+        
+        const statusColors = {
+          pending: 'bg-yellow-100 text-yellow-800',
+          confirmed: 'bg-blue-100 text-blue-800',
+          shipped: 'bg-purple-100 text-purple-800',
+          delivered: 'bg-green-100 text-green-800',
+          cancelled: 'bg-red-100 text-red-800'
+        };
+        
+        container.innerHTML = orders.map(o => `
+          <div class="p-4 border-b border-gray-100 last:border-0 hover:bg-gray-50 cursor-pointer" onclick="viewOrderDetails(${o.id})">
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="flex items-center gap-2">
+                  <p class="font-semibold text-gray-900">PO-${String(o.id).padStart(4, '0')}</p>
+                  <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColors[o.status] || 'bg-gray-100 text-gray-800'}">${o.status}</span>
+                </div>
+                <p class="text-sm text-gray-500">${o.supplier?.name || 'Unknown Supplier'}</p>
+              </div>
+              <div class="text-right">
+                <p class="font-semibold text-gray-900">KSh ${formatNumber(o.total_amount || 0)}</p>
+                <p class="text-xs text-gray-500">${o.notes || ''}</p>
+              </div>
+            </div>
+          </div>
+        `).join('');
+        lucide.createIcons();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('ordersList').innerHTML = `
+          <div class="text-center py-12">
+            <p class="text-red-600 mb-2">Failed to load orders</p>
+            <button onclick="loadOrders()" class="px-4 py-2 bg-primary text-white rounded-lg">Retry</button>
+          </div>`;
+      }
+    }
+    
+    async function viewOrderDetails(orderId) {
+      openModal('orderDetailsModal');
+      const content = document.getElementById('orderDetailsContent');
+      
+      try {
+        const res = await fetch(`/api/v1/orders/${orderId}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const order = await res.json();
+        
+        const statusColors = {
+          pending: 'bg-yellow-100 text-yellow-800',
+          confirmed: 'bg-blue-100 text-blue-800',
+          shipped: 'bg-purple-100 text-purple-800',
+          delivered: 'bg-green-100 text-green-800',
+          cancelled: 'bg-red-100 text-red-800'
+        };
+        
+        const orderItems = order.items || [];
+        const firstItem = orderItems[0] || {};
+        
+        content.innerHTML = `
+          <div class="space-y-6">
+            <div class="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+              <div>
+                <p class="text-sm text-gray-500">Order #</p>
+                <p class="text-xl font-bold text-gray-900">PO-${String(order.id).padStart(4, '0')}</p>
+              </div>
+              <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${statusColors[order.status] || 'bg-gray-100 text-gray-800'}">
+                ${order.status}
+              </span>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-4 bg-gray-50 rounded-xl">
+                <p class="text-sm text-gray-500">Supplier</p>
+                <p class="font-semibold text-gray-900">${order.supplier?.name || 'Unknown'}</p>
+              </div>
+              <div class="p-4 bg-gray-50 rounded-xl">
+                <p class="text-sm text-gray-500">Product</p>
+                <p class="font-semibold text-gray-900">${firstItem.product?.name || 'Unknown'}</p>
+              </div>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4">
+              <div class="p-4 bg-gray-50 rounded-xl">
+                <p class="text-sm text-gray-500">Quantity</p>
+                <p class="font-semibold text-gray-900">${firstItem.quantity || 0}</p>
+              </div>
+              <div class="p-4 bg-gray-50 rounded-xl">
+                <p class="text-sm text-gray-500">Unit Cost</p>
+                <p class="font-semibold text-gray-900">KSh ${formatNumber(firstItem.unit_cost || 0)}</p>
+              </div>
+            </div>
+            
+            <div class="p-4 bg-primary/10 rounded-xl">
+              <p class="text-sm text-primary-dark">Total Value</p>
+              <p class="text-2xl font-bold text-gray-900">KSh ${formatNumber(order.total_amount || 0)}</p>
+            </div>
+            
+            ${order.notes ? `
+            <div class="p-4 bg-gray-50 rounded-xl">
+              <p class="text-sm text-gray-500">Notes</p>
+              <p class="font-semibold text-gray-900">${order.notes}</p>
+            </div>
+            ` : ''}
+            
+            ${order.notes ? `
+            <div class="p-4 bg-gray-50 rounded-xl">
+              <p class="text-sm text-gray-500">Notes</p>
+              <p class="text-gray-900">${order.notes}</p>
+            </div>
+            ` : ''}
+            
+            ${['pending', 'confirmed', 'shipped'].includes(order.status) ? `
+            <div class="pt-4 border-t border-gray-200 space-y-2">
+              <button onclick="receiveOrder(${order.id})" class="w-full py-3 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition">
+                Mark as Delivered
+              </button>
+              <button onclick="deleteOrder(${order.id})" class="w-full py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition">
+                Delete Order
+              </button>
+            </div>
+            ` : ''}
+          </div>
+        `;
+        lucide.createIcons();
+      } catch (err) {
+        content.innerHTML = `
+          <div class="text-center py-8">
+            <p class="text-red-600">Failed to load order details</p>
+          </div>
+        `;
+      }
+    }
+    
+    async function receiveOrder(orderId) {
+      try {
+        await api(`/orders/${orderId}/status`, { 
+          method: 'PUT', 
+          body: JSON.stringify({ status: 'delivered' })
+        });
+        showToast('Order marked as delivered!', 'success');
+        closeModal('orderDetailsModal');
+        loadOrders();
+      } catch (err) {
+        showToast(err.message || 'Failed to update order', 'error');
+      }
+    }
+    
+    async function deleteOrder(orderId) {
+      if (!confirm('Are you sure you want to delete this order? This action cannot be undone.')) return;
+      
+      try {
+        const res = await fetch(`/api/v1/orders/${orderId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          showToast('Order deleted successfully!', 'success');
+          closeModal('orderDetailsModal');
+          loadOrders();
+        } else {
+          const error = await res.json();
+          showToast(error.error || 'Failed to delete order', 'error');
+        }
+      } catch (err) {
+        showToast('Error deleting order', 'error');
+      }
+    }
+    
+    document.getElementById('addOrderForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(e.target);
+      const data = Object.fromEntries(formData);
+      
+      const orderData = {
+        supplier_id: parseInt(data.supplier_id),
+        status: 'pending',
+        notes: data.notes || '',
+        items: [{
+          product_id: parseInt(data.product_id),
+          quantity: parseInt(data.quantity),
+          unit_cost: parseFloat(data.unit_cost),
+          total_cost: parseInt(data.quantity) * parseFloat(data.unit_cost)
+        }]
+      };
+      
+      try {
+        await api('/orders', { method: 'POST', body: JSON.stringify(orderData) });
+        showToast('Purchase order created successfully!', 'success');
+        closeModal('addOrderModal');
+        e.target.reset();
+        loadOrders();
+      } catch (err) {
+        showToast(err.message || 'Failed to create order', 'error');
+      }
+    });
+    
+    loadOrders();
+  </script>
+</body>
+</html>

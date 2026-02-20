@@ -3,6 +3,7 @@ package middleware
 import (
 	"strings"
 
+	"github.com/C9b3rD3vi1/DukaPOS/internal/database"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
 	"github.com/gofiber/fiber/v2"
 )
@@ -368,7 +369,42 @@ func (h *PlanInfoHandler) GetPlanInfo(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
-	return c.JSON(GetPlanInfo(shop.Plan))
+	planInfo := GetPlanInfo(shop.Plan)
+
+	// Get usage statistics from database
+	db := database.GetDB()
+
+	// Count products
+	var productCount int64
+	db.Model(&models.Product{}).Where("shop_id = ? AND is_active = ?", shop.ID, true).Count(&productCount)
+	planInfo["products"] = productCount
+
+	// Count staff
+	var staffCount int64
+	db.Model(&models.Staff{}).Where("shop_id = ?", shop.ID).Count(&staffCount)
+	planInfo["staff"] = staffCount
+
+	// Count customers
+	var customerCount int64
+	db.Model(&models.Customer{}).Where("shop_id = ? AND is_active = ?", shop.ID, true).Count(&customerCount)
+	planInfo["customers"] = customerCount
+
+	// Count shops for this account
+	var shopCount int64
+	db.Model(&models.Shop{}).Where("account_id = ?", shop.AccountID).Count(&shopCount)
+	planInfo["shops"] = shopCount
+
+	// Count API keys
+	var apiKeyCount int64
+	db.Model(&models.APIKey{}).Where("shop_id = ? AND is_active = ?", shop.ID, true).Count(&apiKeyCount)
+	planInfo["api_keys"] = apiKeyCount
+
+	// Count webhooks
+	var webhookCount int64
+	db.Model(&models.Webhook{}).Where("shop_id = ? AND is_active = ?", shop.ID, true).Count(&webhookCount)
+	planInfo["webhooks"] = webhookCount
+
+	return c.JSON(planInfo)
 }
 
 func (h *PlanInfoHandler) GetAllPlans(c *fiber.Ctx) error {

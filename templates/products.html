@@ -1,42 +1,1122 @@
-{{define "content"}}
-<h2 style="margin-bottom: 20px;">Products - {{.Shop.Name}}</h2>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00A650">
+  <title>Products - DukaPOS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00A650',
+            'primary-dark': '#059669',
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .pb-safe { padding-bottom: env(safe-area-inset-bottom); }
+    @keyframes slideIn {
+      from { transform: translateX(100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes progressBar {
+      from { width: 100%; }
+      to { width: 0%; }
+    }
+    .animate-slide-in {
+      animation: slideIn 0.3s ease-out;
+    }
+    .animate-progress {
+      animation: progressBar 3s linear forwards;
+    }
+  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="bg-gray-50">
+  <!-- Header -->
+  <header class="bg-white border-b border-gray-200 fixed top-0 left-0 right-0 z-50 h-16">
+    <div class="max-w-full mx-auto px-4 h-full flex items-center justify-between">
+      <div class="flex items-center">
+        <button onclick="toggleSidebar()" class="md:hidden p-2 -ml-2 mr-2 text-gray-600">
+          <i data-lucide="menu" class="w-6 h-6"></i>
+        </button>
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 bg-primary rounded-xl flex items-center justify-center">
+            <i data-lucide="shopping-bag" class="text-white w-5 h-5"></i>
+          </div>
+          <span class="text-lg font-bold text-gray-900">DukaPOS</span>
+        </a>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openModal('importProductsModal')" class="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm">
+          <i data-lucide="upload" class="w-4 h-4"></i>
+          <span>Import</span>
+        </button>
+        <button onclick="openModal('manageCategoriesModal')" class="hidden sm:flex items-center gap-2 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition text-sm">
+          <i data-lucide="folder" class="w-4 h-4"></i>
+          <span>Categories</span>
+        </button>
+        <button onclick="openModal('addProductModal')" class="flex items-center gap-2 px-3 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          <span class="hidden sm:inline">Add Product</span>
+          <span class="sm:hidden">Add</span>
+        </button>
+      </div>
+    </div>
+  </header>
 
-<div class="card">
-    {{if .Products}}
-    <table>
-        <thead>
-            <tr>
-                <th>ID</th>
-                <th>Name</th>
-                <th>Category</th>
-                <th>Price</th>
-                <th>Stock</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody>
-            {{range .Products}}
-            <tr>
-                <td>#{{.ID}}</td>
-                <td>{{.Name}}</td>
-                <td>{{.Category}}</td>
-                <td>KSh {{.SellingPrice}}</td>
-                <td>{{.CurrentStock}} {{.Unit}}</td>
-                <td>
-                    {{if le .CurrentStock .LowStockThreshold}}
-                    <span class="badge badge-danger">Low Stock</span>
-                    {{else}}
-                    <span class="badge badge-success">In Stock</span>
-                    {{end}}
-                </td>
-            </tr>
-            {{end}}
-        </tbody>
-    </table>
-    {{else}}
-    <p style="text-align: center; padding: 30px; color: #666;">
-        No products yet. Add products via WhatsApp with: <code>add [name] [price] [qty]</code>
-    </p>
-    {{end}}
-</div>
-{{end}}
+  <!-- Sidebar Overlay (mobile only) -->
+  <div id="sidebarOverlay" class="fixed inset-0 bg-black/50 z-40 hidden md:hidden" onclick="toggleSidebar()"></div>
+
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed top-16 left-0 w-64 h-[calc(100vh-4rem)] bg-white border-r border-gray-200 z-40 transform -translate-x-full transition-transform duration-300 md:translate-x-0 overflow-y-auto">
+    <nav class="p-4 space-y-1">
+      <a href="/dashboard" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="layout-dashboard" class="w-5 h-5"></i>
+        Dashboard
+      </a>
+      <a href="/products" class="flex items-center gap-3 px-3 py-2.5 bg-primary/10 text-primary rounded-lg font-medium">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        Products
+      </a>
+      <a href="/sales" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        Sales
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/customers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="users" class="w-5 h-5"></i>
+        Customers
+      </a>
+      <a href="/suppliers" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="truck" class="w-5 h-5"></i>
+        Suppliers
+      </a>
+      <a href="/orders" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="clipboard-list" class="w-5 h-5"></i>
+        Orders
+      </a>
+      <a href="/mpesa" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="smartphone" class="w-5 h-5"></i>
+        M-Pesa
+      </a>
+      <a href="/staff" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="user-cog" class="w-5 h-5"></i>
+        Staff
+      </a>
+      <a href="/ai" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="brain" class="w-5 h-5"></i>
+        AI Insights
+      </a>
+      <a href="/apikeys" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="key" class="w-5 h-5"></i>
+        API Keys
+      </a>
+      <a href="/sms" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="message-square" class="w-5 h-5"></i>
+        SMS
+      </a>
+      <a href="/email" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="mail" class="w-5 h-5"></i>
+        Email
+      </a>
+      <a href="/webhooks" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="webhook" class="w-5 h-5"></i>
+        Webhooks
+      </a>
+      <a href="/reports" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="bar-chart-2" class="w-5 h-5"></i>
+        Reports
+      </a>
+      <a href="/settings" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="settings" class="w-5 h-5"></i>
+        Settings
+      </a>
+      <a href="/billing" class="flex items-center gap-3 px-3 py-2.5 text-gray-600 hover:bg-gray-100 rounded-lg transition">
+        <i data-lucide="credit-card" class="w-5 h-5"></i>
+        Billing
+      </a>
+      <div class="border-t border-gray-200 my-2"></div>
+      <a href="/logout" class="flex items-center gap-3 px-3 py-2.5 text-red-600 hover:bg-red-50 rounded-lg transition">
+        <i data-lucide="log-out" class="w-5 h-5"></i>
+        Logout
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="pt-16 md:pl-64 min-h-screen">
+    <div class="p-4 md:p-6 lg:p-8 max-w-7xl">
+      <!-- Page Header -->
+      <div class="flex items-center justify-between mb-6">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900">Products</h1>
+          <p class="text-gray-500" id="productCountText">Loading...</p>
+        </div>
+        <button onclick="openModal('addProductModal')" class="hidden md:flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition text-sm">
+          <i data-lucide="plus" class="w-4 h-4"></i>
+          Add Product
+        </button>
+      </div>
+
+      <!-- Categories Filter -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-gray-900">Categories</h2>
+          <button onclick="openModal('manageCategoriesModal')" class="text-sm text-primary hover:underline">
+            Manage Categories
+          </button>
+        </div>
+        <div id="categoriesList" class="flex flex-wrap gap-2">
+          <button onclick="filterByCategory('all')" class="px-4 py-2 bg-primary text-white rounded-lg text-sm font-medium transition">
+            All Products
+          </button>
+          <div class="w-full flex justify-center py-4">
+            <div class="w-6 h-6 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Products List -->
+      <div id="productsList">
+        <div class="p-8 flex justify-center">
+          <div class="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 z-50 md:hidden pb-safe">
+    <div class="flex justify-around items-center h-16">
+      <a href="/dashboard" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="home" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Home</span>
+      </a>
+      <a href="/products" class="flex flex-col items-center justify-center w-full h-full text-primary">
+        <i data-lucide="package" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Products</span>
+      </a>
+      <button onclick="openModal('addProductModal')" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center -mt-4 shadow-lg">
+          <i data-lucide="plus" class="w-6 h-6 text-white"></i>
+        </div>
+        <span class="text-xs mt-1">Add</span>
+      </button>
+      <a href="/sales" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="receipt" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Sales</span>
+      </a>
+      <button onclick="toggleSidebar()" class="flex flex-col items-center justify-center w-full h-full text-gray-500 hover:text-gray-900">
+        <i data-lucide="menu" class="w-5 h-5"></i>
+        <span class="text-xs mt-1">Menu</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Add Product Modal -->
+  <div id="addProductModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Add Product</h3>
+        <button onclick="closeModal('addProductModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="addProductForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+          <input type="text" id="productName" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Selling Price</label>
+            <input type="number" id="productPrice" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cost Price</label>
+            <input type="number" id="productCost" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+            <input type="number" id="productStock" value="0" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Alert At</label>
+            <input type="number" id="productThreshold" value="10" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+          <div class="flex gap-2">
+            <select id="productCategory" class="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+              <option value="">Select category...</option>
+            </select>
+            <button type="button" onclick="openModal('manageCategoriesModal'); closeModal('addProductModal')" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition" title="Manage Categories">
+              <i data-lucide="folder-plus" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition">Add Product</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Product Modal -->
+  <div id="editProductModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Edit Product</h3>
+        <button onclick="closeModal('editProductModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="editProductForm" class="space-y-4">
+        <input type="hidden" id="editProductId">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Product Name</label>
+          <input type="text" id="editProductName" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Selling Price</label>
+            <input type="number" id="editProductPrice" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Cost Price</label>
+            <input type="number" id="editProductCost" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Stock</label>
+            <input type="number" id="editProductStock" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Alert At</label>
+            <input type="number" id="editProductThreshold" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+          </div>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Category</label>
+          <div class="flex gap-2">
+            <select id="editProductCategory" class="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary">
+              <option value="">Select category...</option>
+            </select>
+            <button type="button" onclick="openModal('manageCategoriesModal'); closeModal('editProductModal')" class="px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition" title="Manage Categories">
+              <i data-lucide="folder-plus" class="w-5 h-5"></i>
+            </button>
+          </div>
+        </div>
+        <button type="submit" class="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition">Update Product</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- View Product Modal -->
+  <div id="viewProductModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Product Details</h3>
+        <button onclick="closeModal('viewProductModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <div id="productDetails" class="space-y-4">
+        <!-- Product details will be inserted here -->
+      </div>
+      <div class="mt-6 flex gap-3">
+        <button onclick="editCurrentProduct()" class="flex-1 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition flex items-center justify-center gap-2">
+          <i data-lucide="edit" class="w-4 h-4"></i>
+          Edit
+        </button>
+        <button onclick="openModal('deleteProductModal')" class="flex-1 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition flex items-center justify-center gap-2">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Product Modal -->
+  <div id="deleteProductModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6">
+      <div class="text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="alert-triangle" class="w-8 h-8 text-red-600"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Product</h3>
+        <p id="deleteProductName" class="text-gray-500 mb-6">Are you sure you want to delete this product?</p>
+        <div class="flex gap-3">
+          <button onclick="closeModal('deleteProductModal')" class="flex-1 py-2 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button onclick="confirmDeleteProduct()" class="flex-1 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Category Modal -->
+  <div id="editCategoryModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Edit Category</h3>
+        <button onclick="closeModal('editCategoryModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      <form id="editCategoryForm">
+        <input type="hidden" id="editCategoryOldName">
+        <div class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-2">Category Name</label>
+          <input type="text" id="editCategoryName" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+        </div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeModal('editCategoryModal')" class="flex-1 py-2 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button type="submit" class="flex-1 py-2 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition">
+            Save
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Category Modal -->
+  <div id="deleteCategoryModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-96 sm:rounded-2xl rounded-t-2xl p-6">
+      <div class="text-center">
+        <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="alert-triangle" class="w-8 h-8 text-red-600"></i>
+        </div>
+        <h3 class="text-lg font-semibold text-gray-900 mb-2">Delete Category</h3>
+        <p id="deleteCategoryName" class="text-gray-500 mb-6">Are you sure you want to delete this category? Products will be uncategorized.</p>
+        <div class="flex gap-3">
+          <button onclick="closeModal('deleteCategoryModal')" class="flex-1 py-2 border border-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition">
+            Cancel
+          </button>
+          <button onclick="confirmDeleteCategory()" class="flex-1 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition">
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Categories Modal -->
+  <div id="manageCategoriesModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-[500px] sm:rounded-2xl rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Manage Categories</h3>
+        <button onclick="closeModal('manageCategoriesModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      
+      <!-- Add Category Form -->
+      <form id="addCategoryForm" class="mb-6">
+        <div class="flex gap-2">
+          <input type="text" id="newCategoryName" placeholder="New category name" class="flex-1 px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          <button type="submit" class="px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+          </button>
+        </div>
+      </form>
+      
+      <!-- Categories List -->
+      <div id="categoriesManagementList" class="space-y-2">
+        <div class="p-4 text-center text-gray-500">Loading categories...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Products Modal -->
+  <div id="importProductsModal" class="fixed inset-0 bg-black/50 z-50 hidden items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-white w-full sm:w-[500px] sm:rounded-2xl rounded-t-2xl p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-semibold text-gray-900">Import Products</h3>
+        <button onclick="closeModal('importProductsModal')" class="p-2 text-gray-400 hover:text-gray-600">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      
+      <div class="space-y-4">
+        <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div class="flex items-start gap-3">
+            <i data-lucide="info" class="w-5 h-5 text-blue-600 mt-0.5"></i>
+            <div>
+              <p class="font-medium text-blue-900">CSV Format</p>
+              <p class="text-sm text-blue-700">Upload a CSV file with columns: name, selling_price, cost_price, stock, category</p>
+              <a href="#" onclick="downloadTemplate()" class="text-sm text-blue-600 hover:underline mt-2 inline-block">Download template</a>
+            </div>
+          </div>
+        </div>
+        
+        <form id="importForm" class="space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Select CSV File</label>
+            <input type="file" id="csvFile" accept=".csv" class="w-full px-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary" required>
+          </div>
+          <button type="submit" class="w-full py-3 bg-primary text-white rounded-lg font-medium hover:bg-primary-dark transition flex items-center justify-center gap-2">
+            <i data-lucide="upload" class="w-5 h-5"></i>
+            Import Products
+          </button>
+        </form>
+        
+        <div id="importProgress" class="hidden">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-medium text-gray-700">Importing...</span>
+            <span id="importStatus" class="text-sm text-gray-500">0/0</span>
+          </div>
+          <div class="w-full bg-gray-200 rounded-full h-2">
+            <div id="importProgressBar" class="bg-primary h-2 rounded-full transition-all" style="width: 0%"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Container (for new notification system) -->
+  <div id="toast-container" class="fixed top-20 right-4 z-50 flex flex-col gap-2"></div>
+
+  <script>
+    lucide.createIcons();
+    
+    const token = localStorage.getItem('dukapos_token');
+    if (!token) window.location.href = '/login';
+    
+    const shop = JSON.parse(localStorage.getItem('dukapos_shop') || '{}');
+    const shopId = shop.id || 1;
+    let currentProduct = null;
+    let products = [];
+    
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      sidebar.classList.toggle('-translate-x-full');
+      overlay.classList.toggle('hidden');
+    }
+    
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById(id).classList.add('flex');
+      // Reload categories when opening manage categories modal
+      if (id === 'manageCategoriesModal') {
+        loadCategories();
+      }
+      // Load categories when opening add/edit product modals
+      if (id === 'addProductModal' || id === 'editProductModal') {
+        loadCategories();
+      }
+    }
+    
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      document.getElementById(id).classList.remove('flex');
+    }
+    
+    function showToast(msg, type = 'info') {
+      const container = document.getElementById('toast-container');
+      if (!container) {
+        const newContainer = document.createElement('div');
+        newContainer.id = 'toast-container';
+        newContainer.className = 'fixed top-20 right-4 z-50 flex flex-col gap-2';
+        document.body.appendChild(newContainer);
+      }
+      
+      const toast = document.createElement('div');
+      toast.className = `flex items-center gap-3 px-4 py-3 rounded-xl shadow-lg transform transition-all duration-300 min-w-[280px] max-w-md animate-slide-in`;
+      
+      const colors = {
+        success: 'bg-green-500 text-white',
+        error: 'bg-red-500 text-white',
+        warning: 'bg-amber-500 text-white',
+        info: 'bg-blue-500 text-white'
+      };
+      
+      const icons = {
+        success: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>',
+        error: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>',
+        warning: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>',
+        info: '<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+      };
+      
+      toast.className += ` ${colors[type] || colors.info}`;
+      toast.innerHTML = `
+        <div class="flex-shrink-0">${icons[type] || icons.info}</div>
+        <div class="flex-1 text-sm font-medium">${msg}</div>
+        <button onclick="this.parentElement.remove()" class="flex-shrink-0 opacity-70 hover:opacity-100">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+        </button>
+        <div class="absolute bottom-0 left-0 h-1 bg-white/30 animate-progress" style="animation-duration: 3s"></div>
+      `;
+      
+      document.getElementById('toast-container').appendChild(toast);
+      
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+    
+    // Legacy function for backward compatibility
+    function showToastOld(msg, isError = false) {
+      showToast(msg, isError ? 'error' : 'success');
+    }
+    
+    async function loadProducts() {
+      try {
+        const res = await fetch('/api/v1/products', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        products = data.data || data || [];
+        
+        // Filter out placeholder category products
+        const realProducts = products.filter(p => !p.name.startsWith('__category_'));
+        
+        document.getElementById('productCountText').textContent = `${realProducts.length} products`;
+        
+        const container = document.getElementById('productsList');
+        if (realProducts.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-12">
+              <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <i data-lucide="package" class="w-8 h-8 text-gray-400"></i>
+              </div>
+              <p class="text-gray-500 mb-2">No products yet</p>
+              <p class="text-sm text-gray-400 mb-4">Add your first product to get started</p>
+              <button onclick="openModal('addProductModal')" class="px-4 py-2 bg-primary text-white rounded-lg">Add Product</button>
+            </div>`;
+          lucide.createIcons();
+          return;
+        }
+        
+        renderProducts(realProducts);
+      } catch (err) {
+        console.error(err);
+        showToast('Failed to load products', 'error');
+      }
+    }
+    
+    function viewProduct(id) {
+      currentProduct = products.find(p => p.id === id);
+      if (!currentProduct) return;
+      
+      const profit = currentProduct.selling_price - (currentProduct.cost_price || 0);
+      const profitMargin = currentProduct.cost_price ? ((profit / currentProduct.selling_price) * 100).toFixed(1) : 0;
+      
+      document.getElementById('productDetails').innerHTML = `
+        <div class="text-center pb-4 border-b border-gray-100">
+          <div class="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <i data-lucide="package" class="w-10 h-10 text-gray-400"></i>
+          </div>
+          <h4 class="text-xl font-bold text-gray-900">${currentProduct.name}</h4>
+          <p class="text-gray-500">${currentProduct.category || 'Uncategorized'}</p>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-gray-50 rounded-lg p-3">
+            <p class="text-xs text-gray-500">Selling Price</p>
+            <p class="text-lg font-bold text-gray-900">KSh ${currentProduct.selling_price}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <p class="text-xs text-gray-500">Cost Price</p>
+            <p class="text-lg font-bold text-gray-900">KSh ${currentProduct.cost_price || 0}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <p class="text-xs text-gray-500">Current Stock</p>
+            <p class="text-lg font-bold ${currentProduct.current_stock <= currentProduct.low_stock_threshold ? 'text-red-600' : 'text-gray-900'}">${currentProduct.current_stock} ${currentProduct.unit || 'pcs'}</p>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3">
+            <p class="text-xs text-gray-500">Low Stock Alert</p>
+            <p class="text-lg font-bold text-gray-900">${currentProduct.low_stock_threshold}</p>
+          </div>
+        </div>
+        <div class="bg-green-50 rounded-lg p-3">
+          <p class="text-xs text-green-600">Profit Margin</p>
+          <p class="text-lg font-bold text-green-700">${profitMargin}% (KSh ${profit})</p>
+        </div>
+      `;
+      lucide.createIcons();
+      openModal('viewProductModal');
+    }
+    
+    function editCurrentProduct() {
+      closeModal('viewProductModal');
+      if (!currentProduct) return;
+      
+      document.getElementById('editProductId').value = currentProduct.id;
+      document.getElementById('editProductName').value = currentProduct.name;
+      document.getElementById('editProductPrice').value = currentProduct.selling_price;
+      document.getElementById('editProductCost').value = currentProduct.cost_price || 0;
+      document.getElementById('editProductStock').value = currentProduct.current_stock;
+      document.getElementById('editProductThreshold').value = currentProduct.low_stock_threshold;
+      document.getElementById('editProductCategory').value = currentProduct.category || '';
+      
+      openModal('editProductModal');
+    }
+    
+    let pendingDeleteProductId = null;
+    
+    function openDeleteProductModal(productId, productName) {
+      pendingDeleteProductId = productId;
+      document.getElementById('deleteProductName').textContent = `Are you sure you want to delete "${productName}"? This action cannot be undone.`;
+      openModal('deleteProductModal');
+    }
+    
+    async function confirmDeleteProduct() {
+      if (!pendingDeleteProductId) return;
+      
+      try {
+        const res = await fetch(`/api/v1/products/${pendingDeleteProductId}`, {
+          method: 'DELETE',
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (res.ok) {
+          showToast('Product deleted!', 'success');
+          closeModal('deleteProductModal');
+          closeModal('viewProductModal');
+          loadProducts();
+        } else {
+          showToast('Failed to delete product', 'error');
+        }
+      } catch (err) {
+        showToast('Error deleting product', 'error');
+      }
+      pendingDeleteProductId = null;
+    }
+    
+    function closeDeleteProductModal() {
+      pendingDeleteProductId = null;
+      closeModal('deleteProductModal');
+    }
+    
+    document.getElementById('addProductForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const product = {
+        name: document.getElementById('productName').value,
+        selling_price: parseFloat(document.getElementById('productPrice').value),
+        cost_price: parseFloat(document.getElementById('productCost').value) || 0,
+        current_stock: parseInt(document.getElementById('productStock').value),
+        low_stock_threshold: parseInt(document.getElementById('productThreshold').value),
+        category: document.getElementById('productCategory').value
+      };
+      
+      try {
+        const res = await fetch('/api/v1/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(product)
+        });
+        if (res.ok) {
+          showToast('Product added!', 'success');
+          closeModal('addProductModal');
+          e.target.reset();
+          loadProducts();
+        } else {
+          showToast('Failed to add', 'error');
+        }
+      } catch (err) {
+        showToast('Error', 'error');
+      }
+    });
+    
+    document.getElementById('editProductForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const productId = document.getElementById('editProductId').value;
+      const product = {
+        name: document.getElementById('editProductName').value,
+        selling_price: parseFloat(document.getElementById('editProductPrice').value),
+        cost_price: parseFloat(document.getElementById('editProductCost').value) || 0,
+        current_stock: parseInt(document.getElementById('editProductStock').value),
+        low_stock_threshold: parseInt(document.getElementById('editProductThreshold').value),
+        category: document.getElementById('editProductCategory').value
+      };
+      
+      try {
+        const res = await fetch(`/api/v1/products/${productId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(product)
+        });
+        if (res.ok) {
+          showToast('Product updated!', 'success');
+          closeModal('editProductModal');
+          loadProducts();
+        } else {
+          showToast('Failed to update', 'error');
+        }
+      } catch (err) {
+        showToast('Error', 'error');
+      }
+    });
+    
+    // Category Management Functions
+    let currentCategoryFilter = 'all';
+    let categoriesList = [];
+    
+    function renderProducts(productsToRender) {
+      const container = document.getElementById('productsList');
+      
+      if (productsToRender.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12">
+            <div class="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <i data-lucide="package" class="w-8 h-8 text-gray-400"></i>
+            </div>
+            <p class="text-gray-500 mb-2">No products found</p>
+            <button onclick="openModal('addProductModal')" class="px-4 py-2 bg-primary text-white rounded-lg">Add Product</button>
+          </div>`;
+        lucide.createIcons();
+        return;
+      }
+      
+      container.innerHTML = productsToRender.map(p => {
+        let status = 'In Stock', statusClass = 'bg-green-100 text-green-700';
+        if (p.current_stock <= 0) { status = 'Out of Stock'; statusClass = 'bg-red-100 text-red-700'; }
+        else if (p.current_stock <= p.low_stock_threshold) { status = 'Low Stock'; statusClass = 'bg-amber-100 text-amber-700'; }
+        
+        return `
+          <div class="bg-white rounded-xl p-4 mb-3 shadow-sm border border-gray-100 flex items-center gap-4 cursor-pointer hover:shadow-md transition" onclick="viewProduct(${p.id})">
+            <div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+              <i data-lucide="package" class="w-6 h-6 text-gray-400"></i>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-gray-900 truncate">${p.name}</p>
+              <p class="text-sm text-gray-500">${p.category || 'Uncategorized'} • KSh ${p.selling_price}</p>
+            </div>
+            <div class="text-right">
+              <p class="font-semibold text-gray-900">${p.current_stock} ${p.unit || 'pcs'}</p>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusClass}">${status}</span>
+            </div>
+          </div>`;
+      }).join('');
+      lucide.createIcons();
+    }
+    
+    async function loadCategories() {
+      try {
+        const res = await fetch(`/api/v1/products/categories`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        console.log('Categories response:', res.status);
+        const data = await res.json();
+        console.log('Categories data:', data);
+        
+        if (res.ok) {
+          categoriesList = (data.categories || []).map(name => ({ name: name }));
+          renderCategories();
+          renderCategoriesManagement();
+          updateCategoryDropdowns();
+        } else {
+          console.error('Failed to load categories:', data);
+        }
+      } catch (err) {
+        console.error('Error loading categories:', err);
+      }
+    }
+    
+    function renderCategories() {
+      const container = document.getElementById('categoriesList');
+      const allButton = `<button onclick="filterByCategory('all')" class="px-4 py-2 ${currentCategoryFilter === 'all' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} rounded-lg text-sm font-medium transition">All Products</button>`;
+      
+      if (!categoriesList || categoriesList.length === 0) {
+        container.innerHTML = allButton + '<span class="text-sm text-gray-500 py-2">No categories</span>';
+        return;
+      }
+      
+      const categoryButtons = categoriesList.map(cat => `
+        <button onclick="filterByCategory('${cat.name}')" class="px-4 py-2 ${currentCategoryFilter === cat.name ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'} rounded-lg text-sm font-medium transition">
+          ${cat.name}
+        </button>
+      `).join('');
+      
+      container.innerHTML = allButton + categoryButtons;
+    }
+    
+    function renderCategoriesManagement() {
+      const container = document.getElementById('categoriesManagementList');
+      
+      if (!categoriesList || categoriesList.length === 0) {
+        container.innerHTML = '<div class="p-4 text-center text-gray-500">No categories yet. Add one above.</div>';
+        return;
+      }
+      
+      container.innerHTML = categoriesList.map(cat => `
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+          <span class="font-medium text-gray-900">${cat.name}</span>
+          <div class="flex items-center gap-2">
+            <button onclick="openEditCategoryModal('${cat.name}')" class="p-2 text-blue-600 hover:bg-blue-50 rounded-lg">
+              <i data-lucide="edit-2" class="w-4 h-4"></i>
+            </button>
+            <button onclick="openDeleteCategoryModal('${cat.name}')" class="p-2 text-red-600 hover:bg-red-50 rounded-lg">
+              <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+          </div>
+        </div>
+      `).join('');
+      lucide.createIcons();
+    }
+    
+    function updateCategoryDropdowns() {
+      const options = categoriesList.map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('');
+      const productCategory = document.getElementById('productCategory');
+      const editProductCategory = document.getElementById('editProductCategory');
+      
+      if (productCategory) {
+        productCategory.innerHTML = '<option value="">Select category...</option>' + options;
+      }
+      if (editProductCategory) {
+        editProductCategory.innerHTML = '<option value="">Select category...</option>' + options;
+      }
+    }
+    
+    function filterByCategory(category) {
+      currentCategoryFilter = category;
+      renderCategories();
+      
+      const realProducts = products.filter(p => !p.name.startsWith('__category_'));
+      
+      if (category === 'all') {
+        renderProducts(realProducts);
+      } else {
+        const filtered = realProducts.filter(p => p.category === category);
+        renderProducts(filtered);
+      }
+    }
+    
+    document.getElementById('addCategoryForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = document.getElementById('newCategoryName').value;
+      
+      try {
+        const res = await fetch('/api/v1/products/categories', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ name })
+        });
+        
+        if (res.ok) {
+          showToast('Category added!', 'success');
+          document.getElementById('newCategoryName').value = '';
+          loadCategories();
+        } else {
+          showToast('Failed to add category', 'error');
+        }
+      } catch (err) {
+        showToast('Error adding category', 'error');
+      }
+    });
+    
+    function openEditCategoryModal(oldName) {
+      document.getElementById('editCategoryOldName').value = oldName;
+      document.getElementById('editCategoryName').value = oldName;
+      openModal('editCategoryModal');
+    }
+    
+    document.getElementById('editCategoryForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const oldName = document.getElementById('editCategoryOldName').value;
+      const newName = document.getElementById('editCategoryName').value;
+      
+      if (!newName || newName === oldName) {
+        closeModal('editCategoryModal');
+        return;
+      }
+      
+      try {
+        // Update all products with old category to new category
+        const products = await fetch('/api/v1/products', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.json());
+        
+        const productList = products.data || products || [];
+        for (const product of productList) {
+          if (product.category === oldName) {
+            await fetch(`/api/v1/products/${product.id}`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ category: newName })
+            });
+          }
+        }
+        
+        showToast('Category updated!', 'success');
+        closeModal('editCategoryModal');
+        loadCategories();
+        loadProducts();
+      } catch (err) {
+        showToast('Error updating category', 'error');
+      }
+    });
+    
+    async function editCategory(id, currentName) {
+      openEditCategoryModal(currentName);
+    }
+    
+    let pendingDeleteCategoryName = null;
+    
+    function openDeleteCategoryModal(name) {
+      pendingDeleteCategoryName = name;
+      document.getElementById('deleteCategoryName').textContent = `Are you sure you want to delete "${name}"? Products in this category will be uncategorized.`;
+      openModal('deleteCategoryModal');
+    }
+    
+    async function confirmDeleteCategory() {
+      if (!pendingDeleteCategoryName) return;
+      
+      try {
+        // Set all products with this category to uncategorized
+        const products = await fetch('/api/v1/products', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }).then(r => r.json());
+        
+        const productList = products.data || products || [];
+        for (const product of productList) {
+          if (product.category === pendingDeleteCategoryName) {
+            await fetch(`/api/v1/products/${product.id}`, {
+              method: 'PUT',
+              headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+              },
+              body: JSON.stringify({ category: '' })
+            });
+          }
+        }
+        
+        showToast('Category deleted!', 'success');
+        closeModal('deleteCategoryModal');
+        loadCategories();
+        loadProducts();
+      } catch (err) {
+        showToast('Error deleting category', 'error');
+      }
+      pendingDeleteCategoryName = null;
+    }
+    
+    // Bulk Import Functions
+    function downloadTemplate() {
+      const csv = 'name,selling_price,cost_price,stock,category\nProduct Name,100,80,50,Category\n';
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'products_template.csv';
+      a.click();
+      window.URL.revokeObjectURL(url);
+      showToast('Template downloaded!', 'success');
+    }
+    
+    document.getElementById('importForm')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fileInput = document.getElementById('csvFile');
+      const file = fileInput.files[0];
+      
+      if (!file) {
+        showToast('Please select a file', 'error');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onload = async (e) => {
+        const text = e.target.result;
+        const lines = text.split('\n').filter(line => line.trim());
+        const headers = lines[0].split(',').map(h => h.trim());
+        
+        // Validate headers
+        const required = ['name', 'selling_price', 'cost_price', 'stock'];
+        const missing = required.filter(h => !headers.includes(h));
+        
+        if (missing.length > 0) {
+          showToast(`Missing columns: ${missing.join(', ')}`, true);
+          return;
+        }
+        
+        const products = [];
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          const product = {};
+          headers.forEach((header, index) => {
+            product[header] = values[index] || '';
+          });
+          
+          if (product.name) {
+            products.push({
+              name: product.name,
+              selling_price: parseFloat(product.selling_price) || 0,
+              cost_price: parseFloat(product.cost_price) || 0,
+              current_stock: parseInt(product.stock) || 0,
+              category: product.category || ''
+            });
+          }
+        }
+        
+        if (products.length === 0) {
+          showToast('No valid products found in file', 'error');
+          return;
+        }
+        
+        // Show progress
+        document.getElementById('importProgress').classList.remove('hidden');
+        
+        try {
+          // Use bulk endpoint for efficient import
+          const res = await fetch('/api/v1/products/bulk', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(products)
+          });
+          
+          const result = await res.json();
+          
+          if (res.ok) {
+            document.getElementById('importProgressBar').style.width = '100%';
+            document.getElementById('importStatus').textContent = `${result.created}/${result.total}`;
+            showToast(`Imported ${result.created} of ${result.total} products!`, 'success');
+          } else {
+            showToast(result.error || 'Import failed', 'error');
+          }
+        } catch (err) {
+          console.error('Failed to import products', err);
+          showToast('Import failed', 'error');
+        }
+        closeModal('importProductsModal');
+        document.getElementById('importForm').reset();
+        document.getElementById('importProgress').classList.add('hidden');
+        loadProducts();
+      };
+      
+      reader.readAsText(file);
+    });
+    
+    loadProducts();
+    loadCategories();
+  </script>
+</body>
+</html>
