@@ -37,6 +37,10 @@
     </div>
     
     <div class="bg-white/10 backdrop-blur-xl rounded-3xl shadow-float p-8 border border-white/10">
+      <div id="errorAlert" class="mb-4 p-4 bg-red-500/20 border border-red-500/30 rounded-xl hidden">
+        <p id="errorMessage" class="text-red-300 text-sm text-center"></p>
+      </div>
+      
       <form id="adminLoginForm" class="space-y-5">
         <div>
           <label class="block text-sm font-semibold text-slate-300 mb-2">Email</label>
@@ -49,9 +53,7 @@
             class="w-full px-4 py-3.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:ring-2 focus:ring-primary/50 focus:border-primary focus:bg-white/10 transition-all">
         </div>
         
-        <p class="text-red-400 text-sm hidden" id="loginError"></p>
-        
-        <button type="submit" class="w-full py-3.5 bg-gradient-to-br from-primary to-primary-dark text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-primary-500/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+        <button type="submit" id="submitBtn" class="w-full py-3.5 bg-gradient-to-br from-primary to-primary-dark text-white rounded-xl font-semibold hover:shadow-lg hover:shadow-primary-500/25 hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
           <i data-lucide="log-in" class="w-5 h-5"></i>
           Sign In
         </button>
@@ -69,13 +71,50 @@
   <script>
     lucide.createIcons();
     
+    // Show error message
+    function showError(message) {
+      const errorAlert = document.getElementById('errorAlert');
+      const errorMessage = document.getElementById('errorMessage');
+      errorMessage.textContent = message;
+      errorAlert.classList.remove('hidden');
+    }
+    
+    // Hide error message
+    function hideError() {
+      document.getElementById('errorAlert').classList.add('hidden');
+    }
+    
+    // Set loading state
+    function setLoading(loading) {
+      const submitBtn = document.getElementById('submitBtn');
+      if (loading) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i data-lucide="loader-2" class="w-5 h-5 animate-spin"></i> Signing in...';
+      } else {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i data-lucide="log-in" class="w-5 h-5"></i> Sign In';
+      }
+      lucide.createIcons();
+    }
+    
     document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const email = document.getElementById('adminEmail').value;
-      const password = document.getElementById('adminPassword').value;
-      const errorEl = document.getElementById('loginError');
+      hideError();
       
-      errorEl.classList.add('hidden');
+      const email = document.getElementById('adminEmail').value.trim();
+      const password = document.getElementById('adminPassword').value;
+      
+      if (!email) {
+        showError('Please enter your email address');
+        return;
+      }
+      
+      if (!password) {
+        showError('Please enter your password');
+        return;
+      }
+      
+      setLoading(true);
       
       try {
         const res = await fetch('/api/auth/login', {
@@ -83,39 +122,29 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email, password })
         });
+        
         const data = await res.json();
         
-        if (res.ok) {
+        if (!res.ok) {
+          showError(data.error || 'Login failed. Please check your credentials.');
+          setLoading(false);
+          return;
+        }
+        
+        if (data.account && data.account.is_admin) {
+          // Admin login successful
           localStorage.setItem('dukapos_token', data.token);
           localStorage.setItem('dukapos_shop', JSON.stringify(data.shop));
-          
-          // Check if admin
-          if (data.account && data.account.is_admin) {
-            localStorage.setItem('dukapos_admin', 'true');
-            window.location.href = '/admin/dashboard';
-          } else {
-            // Not admin, logout and show error
-            localStorage.removeItem('dukapos_token');
-            localStorage.removeItem('dukapos_shop');
-            localStorage.removeItem('dukapos_admin');
-            errorEl.textContent = 'Admin access required. This account is not an administrator.';
-            errorEl.classList.remove('hidden');
-          }
+          localStorage.setItem('dukapos_admin', 'true');
+          window.location.href = '/admin/dashboard';
         } else {
-            // Not admin, logout and show error
-            localStorage.removeItem('dukapos_token');
-            localStorage.removeItem('dukapos_shop');
-            localStorage.removeItem('dukapos_admin');
-            errorEl.textContent = 'Admin access required. This account is not an administrator.';
-            errorEl.classList.remove('hidden');
-          }
-        } else {
-          errorEl.textContent = data.error || 'Login failed. Please try again.';
-          errorEl.classList.remove('hidden');
+          // Not an admin
+          showError('Access denied. This account does not have admin privileges.');
+          setLoading(false);
         }
       } catch (err) {
-        errorEl.textContent = 'Connection error. Please try again.';
-        errorEl.classList.remove('hidden');
+        showError('Connection error. Please check your network and try again.');
+        setLoading(false);
       }
     });
   </script>

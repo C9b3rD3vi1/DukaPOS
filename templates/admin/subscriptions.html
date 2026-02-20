@@ -252,19 +252,30 @@
     const token = localStorage.getItem('dukapos_token');
     const isAdmin = localStorage.getItem('dukapos_admin') === 'true';
     
-    // Check if user is admin
+    // Check if user is admin - redirect to admin login if not
     if (!token || !isAdmin) {
       window.location.href = '/admin/login';
+      throw new Error('Not authorized');
     }
     
     async function api(endpoint, options = {}) {
-      const token = localStorage.getItem('dukapos_token');
       const res = await fetch(`/api/v1/admin${endpoint}`, {
         ...options,
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...options.headers }
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) {
+        if (res.status === 401) {
+          localStorage.removeItem('dukapos_admin');
+          localStorage.removeItem('dukapos_token');
+          window.location.href = '/admin/login';
+          throw new Error('Session expired');
+        }
+        if (res.status === 403) {
+          throw new Error(data.error || 'Admin access required');
+        }
+        throw new Error(data.error || 'Request failed');
+      }
       return data;
     }
 
