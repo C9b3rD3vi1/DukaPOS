@@ -508,6 +508,20 @@ func main() {
 			return c.SendFile("./templates/billing.html")
 		})
 
+		// Admin Routes
+		web.Get("/admin", func(c *fiber.Ctx) error {
+			return c.Redirect("/admin/dashboard")
+		})
+		web.Get("/admin/dashboard", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/admin/dashboard.html")
+		})
+		web.Get("/admin/users", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/admin/users.html")
+		})
+		web.Get("/admin/subscriptions", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/admin/subscriptions.html")
+		})
+
 		log.Println("✅ Web dashboard enabled")
 
 		// Dashboard API routes - use JWT auth like protected routes
@@ -583,6 +597,18 @@ func main() {
 	planHandler := middleware.NewPlanInfoHandler()
 	api.Get("/plans", planHandler.GetAllPlans)
 	protected.Get("/plan", planHandler.GetPlanInfo)
+
+	// ========== Admin Routes ==========
+	adminHandler := handlers.NewAdminHandler()
+	admin := protected.Group("/admin")
+	admin.Get("/dashboard", adminHandler.Dashboard)
+	admin.Get("/accounts", adminHandler.GetAccounts)
+	admin.Get("/accounts/:id", adminHandler.GetAccount)
+	admin.Put("/accounts/:id/plan", adminHandler.UpdateAccountPlan)
+	admin.Put("/accounts/:id/status", adminHandler.UpdateAccountStatus)
+	admin.Get("/shops", adminHandler.GetShops)
+	admin.Get("/revenue", adminHandler.GetRevenueStats)
+	admin.Post("/upgrade-all", adminHandler.UpgradeAllAccounts)
 
 	// Shop routes
 	protected.Get("/shop/profile", shopHandler.GetProfile)

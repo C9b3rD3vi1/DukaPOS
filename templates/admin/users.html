@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00A650">
+  <title>User Management - DukaPOS Admin</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00A650',
+            'primary-dark': '#059669',
+            'primary-50': '#ECFDF5',
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .stat-card { @apply bg-white rounded-2xl p-5 border border-gray-100 shadow-card; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 via-white to-gray-100 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 h-16 shadow-sm">
+    <div class="max-w-full mx-auto px-4 h-full flex items-center justify-between">
+      <div class="flex items-center">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/25">
+            <i data-lucide="shield-check" class="text-white w-5 h-5"></i>
+          </div>
+          <span class="text-lg font-bold text-gray-900">DukaPOS Admin</span>
+        </a>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/admin/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-100 transition">Dashboard</a>
+        <a href="/admin/users" class="text-primary font-medium px-3 py-2 bg-primary-50 rounded-xl">Users</a>
+        <a href="/admin/subscriptions" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-100 transition">Plans</a>
+        <span class="text-gray-400">|</span>
+        <a href="/dashboard" class="text-primary font-medium">View Site</a>
+        <a href="/logout" class="text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl transition">Logout</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="pt-20 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
+    <div class="mb-8 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">User Management</h1>
+        <p class="text-gray-500 mt-1">Manage all registered accounts</p>
+      </div>
+      <div class="flex gap-3">
+        <div class="relative">
+          <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+          <input type="text" id="searchInput" placeholder="Search users..." 
+            class="pl-10 pr-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary/20 focus:border-primary"
+            oninput="debounceSearch()">
+        </div>
+        <select id="planFilter" class="border border-gray-200 rounded-xl px-4 py-2 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          onchange="loadAccounts()">
+          <option value="">All Plans</option>
+          <option value="free">Free</option>
+          <option value="pro">Pro</option>
+          <option value="business">Business</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <div class="stat-card">
+        <p class="text-sm text-gray-500">Total Users</p>
+        <p class="text-2xl font-bold text-gray-900" id="totalCount">-</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-sm text-gray-500">Active</p>
+        <p class="text-2xl font-bold text-green-600" id="activeCount">-</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-sm text-gray-500">Pro Users</p>
+        <p class="text-2xl font-bold text-blue-600" id="proCount">-</p>
+      </div>
+      <div class="stat-card">
+        <p class="text-sm text-gray-500">Business Users</p>
+        <p class="text-2xl font-bold text-primary" id="businessCount">-</p>
+      </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50 border-b border-gray-100">
+            <tr>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-gray-600">User</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-gray-600">Phone</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-gray-600">Plan</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-gray-600">Status</th>
+              <th class="text-left px-6 py-4 text-sm font-semibold text-gray-600">Joined</th>
+              <th class="text-right px-6 py-4 text-sm font-semibold text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="usersTable">
+            <tr>
+              <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                <div class="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin mx-auto"></div>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      
+      <!-- Pagination -->
+      <div class="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
+        <p class="text-sm text-gray-500" id="paginationInfo">Showing 0 users</p>
+        <div class="flex gap-2" id="paginationButtons"></div>
+      </div>
+    </div>
+  </main>
+
+  <!-- User Detail Modal -->
+  <div id="userModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg rounded-3xl p-6 shadow-2xl">
+      <div class="flex items-center justify-between mb-6">
+        <h3 class="text-lg font-bold text-gray-900">User Details</h3>
+        <button onclick="closeModal('userModal')" class="p-2 hover:bg-gray-100 rounded-xl transition">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+      
+      <div id="userDetails" class="space-y-4">
+        <!-- User details will be loaded here -->
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-gray-100 flex gap-3">
+        <select id="planSelect" class="flex-1 border border-gray-200 rounded-xl px-4 py-2" onchange="updatePlan()">
+          <option value="free">Free</option>
+          <option value="pro">Pro</option>
+          <option value="business">Business</option>
+        </select>
+        <button id="statusBtn" onclick="toggleStatus()" class="px-4 py-2 rounded-xl font-medium transition">
+          Deactivate
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    lucide.createIcons();
+    
+    let currentPage = 1;
+    let currentUserId = null;
+    let searchTimeout = null;
+
+    function formatNumber(num) {
+      return new Intl.NumberFormat('en-KE').format(Math.round(num || 0));
+    }
+
+    function formatDate(date) {
+      return new Date(date).toLocaleDateString('en-KE', { year: 'numeric', month: 'short', day: 'numeric' });
+    }
+
+    async function api(endpoint, options = {}) {
+      const token = localStorage.getItem('dukapos_token');
+      const res = await fetch(`/api/v1/admin${endpoint}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...options.headers }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data;
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchTimeout);
+      searchTimeout = setTimeout(() => { currentPage = 1; loadAccounts(); }, 300);
+    }
+
+    async function loadAccounts() {
+      try {
+        const search = document.getElementById('searchInput').value;
+        const plan = document.getElementById('planFilter').value;
+        
+        const params = new URLSearchParams({ page: currentPage, limit: 20 });
+        if (search) params.append('search', search);
+        if (plan) params.append('plan', plan);
+        
+        const data = await api(`/accounts?${params}`);
+        
+        document.getElementById('totalCount').textContent = data.total;
+        document.getElementById('activeCount').textContent = data.accounts.filter(a => a.is_active).length;
+        document.getElementById('proCount').textContent = data.accounts.filter(a => a.plan === 'pro').length;
+        document.getElementById('businessCount').textContent = data.accounts.filter(a => a.plan === 'business').length;
+        
+        const tbody = document.getElementById('usersTable');
+        
+        if (data.accounts.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-gray-500">No users found</td></tr>`;
+          return;
+        }
+        
+        tbody.innerHTML = data.accounts.map(account => `
+          <tr class="border-b border-gray-50 hover:bg-gray-50 transition">
+            <td class="px-6 py-4">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white font-bold">
+                  ${account.name.charAt(0).toUpperCase()}
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900">${account.name}</p>
+                  <p class="text-sm text-gray-500">${account.email}</p>
+                </div>
+              </div>
+            </td>
+            <td class="px-6 py-4 text-gray-600">${account.phone}</td>
+            <td class="px-6 py-4">
+              <span class="px-3 py-1 rounded-full text-xs font-medium ${
+                account.plan === 'business' ? 'bg-primary-50 text-primary' :
+                account.plan === 'pro' ? 'bg-blue-50 text-blue-600' :
+                'bg-gray-100 text-gray-600'
+              }">${account.plan.charAt(0).toUpperCase() + account.plan.slice(1)}</span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="px-3 py-1 rounded-full text-xs font-medium ${
+                account.is_active ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
+              }">${account.is_active ? 'Active' : 'Inactive'}</span>
+            </td>
+            <td class="px-6 py-4 text-gray-500 text-sm">${formatDate(account.created_at)}</td>
+            <td class="px-6 py-4 text-right">
+              <button onclick="viewUser(${account.id})" class="text-primary hover:bg-primary-50 px-3 py-1 rounded-lg transition">
+                View
+              </button>
+            </td>
+          </tr>
+        `).join('');
+        
+        document.getElementById('paginationInfo').textContent = `Showing ${(currentPage - 1) * 20 + 1}-${Math.min(currentPage * 20, data.total)} of ${data.total}`;
+        
+        const pagesDiv = document.getElementById('paginationButtons');
+        pagesDiv.innerHTML = '';
+        for (let i = 1; i <= data.pages; i++) {
+          if (i === currentPage || i === 1 || i === data.pages || (i >= currentPage - 1 && i <= currentPage + 1)) {
+            pagesDiv.innerHTML += `<button onclick="goToPage(${i})" class="px-3 py-1 rounded-lg ${i === currentPage ? 'bg-primary text-white' : 'hover:bg-gray-100'}">${i}</button>`;
+          } else if (i === currentPage - 2 || i === currentPage + 2) {
+            pagesDiv.innerHTML += `<span class="text-gray-400">...</span>`;
+          }
+        }
+        
+        lucide.createIcons();
+      } catch (e) {
+        console.error(e);
+        document.getElementById('usersTable').innerHTML = `<tr><td colspan="6" class="px-6 py-8 text-center text-red-500">Error loading users</td></tr>`;
+      }
+    }
+
+    function goToPage(page) {
+      currentPage = page;
+      loadAccounts();
+    }
+
+    async function viewUser(id) {
+      try {
+        const data = await api(`/accounts/${id}`);
+        currentUserId = id;
+        
+        const account = data.account;
+        document.getElementById('planSelect').value = account.plan;
+        document.getElementById('statusBtn').textContent = account.is_active ? 'Deactivate' : 'Activate';
+        document.getElementById('statusBtn').className = account.is_active 
+          ? 'px-4 py-2 rounded-xl font-medium bg-red-100 text-red-600 hover:bg-red-200 transition'
+          : 'px-4 py-2 rounded-xl font-medium bg-green-100 text-green-600 hover:bg-green-200 transition';
+        
+        document.getElementById('userDetails').innerHTML = `
+          <div class="flex items-center gap-4 pb-4 border-b border-gray-100">
+            <div class="w-16 h-16 rounded-full bg-gradient-to-br from-primary to-primary-dark flex items-center justify-center text-white text-2xl font-bold">
+              ${account.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <h4 class="font-bold text-gray-900 text-lg">${account.name}</h4>
+              <p class="text-gray-500">${account.email}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <p class="text-sm text-gray-500">Phone</p>
+              <p class="font-medium">${account.phone}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Status</p>
+              <p class="font-medium ${account.is_active ? 'text-green-600' : 'text-red-600'}">${account.is_active ? 'Active' : 'Inactive'}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Current Plan</p>
+              <p class="font-medium">${account.plan.charAt(0).toUpperCase() + account.plan.slice(1)}</p>
+            </div>
+            <div>
+              <p class="text-sm text-gray-500">Joined</p>
+              <p class="font-medium">${formatDate(account.created_at)}</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-4 pt-4 border-t border-gray-100">
+            <div class="text-center">
+              <p class="text-xl font-bold text-gray-900">${data.shop_count}</p>
+              <p class="text-xs text-gray-500">Shops</p>
+            </div>
+            <div class="text-center">
+              <p class="text-xl font-bold text-gray-900">${data.product_count}</p>
+              <p class="text-xs text-gray-500">Products</p>
+            </div>
+            <div class="text-center">
+              <p class="text-xl font-bold text-gray-900">KSh ${formatNumber(data.total_revenue)}</p>
+              <p class="text-xs text-gray-500">Revenue</p>
+            </div>
+          </div>
+        `;
+        
+        openModal('userModal');
+        lucide.createIcons();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function updatePlan() {
+      const plan = document.getElementById('planSelect').value;
+      try {
+        await api(`/accounts/${currentUserId}/plan`, {
+          method: 'PUT',
+          body: JSON.stringify({ plan })
+        });
+        alert('Plan updated successfully!');
+        loadAccounts();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    async function toggleStatus() {
+      const isActive = document.getElementById('statusBtn').textContent === 'Deactivate';
+      try {
+        await api(`/accounts/${currentUserId}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ is_active: !isActive })
+        });
+        alert('Status updated successfully!');
+        closeModal('userModal');
+        loadAccounts();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    function openModal(id) {
+      document.getElementById(id).classList.remove('hidden');
+      document.getElementById(id).classList.add('flex');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+      document.getElementById(id).classList.remove('flex');
+    }
+
+    loadAccounts();
+  </script>
+</body>
+</html>

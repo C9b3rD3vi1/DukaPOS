@@ -34,6 +34,7 @@ type Account struct {
 	Phone        string         `gorm:"size:20;uniqueIndex;not null" json:"phone"`
 	IsActive     bool           `gorm:"default:true" json:"is_active"`
 	IsVerified   bool           `gorm:"default:false" json:"is_verified"`
+	IsAdmin      bool           `gorm:"default:false" json:"is_admin"`
 	Plan         PlanType       `gorm:"size:20;default:free" json:"plan"`
 	CreatedAt    time.Time      `json:"created_at"`
 	UpdatedAt    time.Time      `json:"updated_at"`

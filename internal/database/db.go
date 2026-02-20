@@ -112,6 +112,38 @@ func Seed() error {
 
 	var count int64
 	DB.Model(&models.Account{}).Count(&count)
+
+	// Upgrade all existing accounts to Business plan for testing
+	if count > 0 {
+		log.Println("⬆️  Upgrading existing accounts to Business plan for testing...")
+		DB.Model(&models.Account{}).Update("plan", models.PlanBusiness)
+		DB.Model(&models.Shop{}).Update("plan", models.PlanBusiness)
+		log.Println("✅ All accounts upgraded to Business plan")
+	}
+
+	// Always create an admin account
+	adminEmail := "admin@dukapos.com"
+	var adminCount int64
+	DB.Model(&models.Account{}).Where("email = ?", adminEmail).Count(&adminCount)
+
+	if adminCount == 0 {
+		admin := models.Account{
+			Email:        adminEmail,
+			PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+			Name:         "Admin User",
+			Phone:        "+254700000000",
+			IsActive:     true,
+			IsVerified:   true,
+			Plan:         models.PlanBusiness,
+			IsAdmin:      true,
+		}
+		if err := DB.Create(&admin).Error; err != nil {
+			log.Printf("Failed to create admin account: %v", err)
+		} else {
+			log.Println("✅ Admin account created: admin@dukapos.com / password")
+		}
+	}
+
 	if count > 0 {
 		log.Println("⏭️  Skipping seed - data already exists")
 		return nil
@@ -124,7 +156,7 @@ func Seed() error {
 		Phone:        "+254700000001",
 		IsActive:     true,
 		IsVerified:   true,
-		Plan:         models.PlanFree,
+		Plan:         models.PlanBusiness,
 	}
 
 	if err := DB.Create(&account).Error; err != nil {
@@ -136,7 +168,7 @@ func Seed() error {
 		Name:      "Test Duka",
 		Phone:     "+254700000001",
 		OwnerName: "John Doe",
-		Plan:      models.PlanFree,
+		Plan:      models.PlanBusiness,
 		IsActive:  true,
 		Email:     "test@dukapos.com",
 	}

@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#00A650">
+  <title>Admin Dashboard - DukaPOS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#00A650',
+            'primary-dark': '#059669',
+            'primary-light': '#34D399',
+            'primary-50': '#ECFDF5',
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .stat-card { @apply bg-white rounded-2xl p-5 border border-gray-100 shadow-card transition-all duration-300 hover:shadow-card-hover; }
+    @keyframes fadeInUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up { animation: fadeInUp 0.4s ease-out forwards; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-gray-50 via-white to-gray-100 min-h-screen">
+  <!-- Header -->
+  <header class="bg-white/80 backdrop-blur-xl border-b border-gray-200/50 fixed top-0 left-0 right-0 z-50 h-16 shadow-sm">
+    <div class="max-w-full mx-auto px-4 h-full flex items-center justify-between">
+      <div class="flex items-center">
+        <a href="/" class="flex items-center gap-2">
+          <div class="w-9 h-9 bg-gradient-to-br from-primary to-primary-dark rounded-xl flex items-center justify-center shadow-lg shadow-primary-500/25">
+            <i data-lucide="shield-check" class="text-white w-5 h-5"></i>
+          </div>
+          <span class="text-lg font-bold text-gray-900">DukaPOS Admin</span>
+        </a>
+      </div>
+      <div class="flex items-center gap-4">
+        <a href="/admin/dashboard" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-100 transition">Dashboard</a>
+        <a href="/admin/users" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-100 transition">Users</a>
+        <a href="/admin/subscriptions" class="text-gray-600 hover:text-gray-900 px-3 py-2 rounded-xl hover:bg-gray-100 transition">Plans</a>
+        <span class="text-gray-400">|</span>
+        <a href="/dashboard" class="text-primary font-medium">View Site</a>
+        <a href="/logout" class="text-red-600 hover:bg-red-50 px-3 py-2 rounded-xl transition">Logout</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="pt-20 pb-12 px-4 md:px-8 max-w-7xl mx-auto">
+    <div class="mb-8">
+      <h1 class="text-2xl font-bold text-gray-900">Admin Dashboard</h1>
+      <p class="text-gray-500 mt-1">System overview and analytics</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div class="stat-card animate-fade-in-up" style="animation-delay: 0ms;">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/25">
+            <i data-lucide="users" class="w-6 h-6 text-white"></i>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500 font-medium">Total Users</p>
+        <p class="text-2xl font-bold text-gray-900" id="totalAccounts">-</p>
+      </div>
+
+      <div class="stat-card animate-fade-in-up" style="animation-delay: 50ms;">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-xl flex items-center justify-center shadow-lg shadow-green-500/25">
+            <i data-lucide="store" class="w-6 h-6 text-white"></i>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500 font-medium">Total Shops</p>
+        <p class="text-2xl font-bold text-gray-900" id="totalShops">-</p>
+      </div>
+
+      <div class="stat-card animate-fade-in-up" style="animation-delay: 100ms;">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 bg-gradient-to-br from-purple-400 to-purple-600 rounded-xl flex items-center justify-center shadow-lg shadow-purple-500/25">
+            <i data-lucide="package" class="w-6 h-6 text-white"></i>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500 font-medium">Total Products</p>
+        <p class="text-2xl font-bold text-gray-900" id="totalProducts">-</p>
+      </div>
+
+      <div class="stat-card animate-fade-in-up" style="animation-delay: 150ms;">
+        <div class="flex items-center justify-between mb-3">
+          <div class="w-12 h-12 bg-gradient-to-br from-amber-400 to-amber-600 rounded-xl flex items-center justify-center shadow-lg shadow-amber-500/25">
+            <i data-lucide="receipt" class="w-6 h-6 text-white"></i>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500 font-medium">Total Sales</p>
+        <p class="text-2xl font-bold text-gray-900" id="totalSales">-</p>
+      </div>
+    </div>
+
+    <!-- Revenue & Plans Row -->
+    <div class="grid lg:grid-cols-2 gap-6 mb-8">
+      <!-- Revenue Chart -->
+      <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="font-semibold text-gray-900">Revenue (Last 30 Days)</h2>
+          <select id="revenueDays" class="text-sm border border-gray-200 rounded-lg px-2 py-1" onchange="loadRevenue()">
+            <option value="7">7 Days</option>
+            <option value="30" selected>30 Days</option>
+            <option value="90">90 Days</option>
+          </select>
+        </div>
+        <canvas id="revenueChart" height="200"></canvas>
+      </div>
+
+      <!-- Plan Distribution -->
+      <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-5">
+        <h2 class="font-semibold text-gray-900 mb-4">Plan Distribution</h2>
+        <div class="space-y-4">
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-medium text-gray-600">Free Plan</span>
+              <span class="text-sm font-bold text-gray-900" id="freeCount">-</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-3">
+              <div class="bg-gray-400 h-3 rounded-full" id="freeBar" style="width: 0%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-medium text-blue-600">Pro Plan</span>
+              <span class="text-sm font-bold text-gray-900" id="proCount">-</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-3">
+              <div class="bg-blue-500 h-3 rounded-full" id="proBar" style="width: 0%"></div>
+            </div>
+          </div>
+          <div>
+            <div class="flex justify-between mb-1">
+              <span class="text-sm font-medium text-primary">Business Plan</span>
+              <span class="text-sm font-bold text-gray-900" id="businessCount">-</span>
+            </div>
+            <div class="w-full bg-gray-100 rounded-full h-3">
+              <div class="bg-primary h-3 rounded-full" id="businessBar" style="width: 0%"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="mt-6 pt-4 border-t border-gray-100">
+          <div class="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <p class="text-2xl font-bold text-gray-900" id="todaySales">-</p>
+              <p class="text-xs text-gray-500">Sales Today</p>
+            </div>
+            <div>
+              <p class="text-2xl font-bold text-gray-900" id="todayRevenue">-</p>
+              <p class="text-xs text-gray-500">Revenue Today</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="bg-white rounded-2xl shadow-card border border-gray-100 p-5">
+      <h2 class="font-semibold text-gray-900 mb-4">Quick Actions</h2>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <button onclick="upgradeAll('pro')" class="flex items-center gap-3 p-4 bg-blue-50 rounded-xl hover:bg-blue-100 transition">
+          <i data-lucide="arrow-up-circle" class="w-6 h-6 text-blue-600"></i>
+          <div class="text-left">
+            <p class="font-medium text-gray-900">Upgrade to Pro</p>
+            <p class="text-xs text-gray-500">All users</p>
+          </div>
+        </button>
+        <button onclick="upgradeAll('business')" class="flex items-center gap-3 p-4 bg-primary-50 rounded-xl hover:bg-primary-100 transition">
+          <i data-lucide="crown" class="w-6 h-6 text-primary"></i>
+          <div class="text-left">
+            <p class="font-medium text-gray-900">Upgrade to Business</p>
+            <p class="text-xs text-gray-500">All users</p>
+          </div>
+        </button>
+        <a href="/admin/users" class="flex items-center gap-3 p-4 bg-purple-50 rounded-xl hover:bg-purple-100 transition">
+          <i data-lucide="user-cog" class="w-6 h-6 text-purple-600"></i>
+          <div class="text-left">
+            <p class="font-medium text-gray-900">Manage Users</p>
+            <p class="text-xs text-gray-500">View & edit</p>
+          </div>
+        </a>
+        <a href="/admin/subscriptions" class="flex items-center gap-3 p-4 bg-amber-50 rounded-xl hover:bg-amber-100 transition">
+          <i data-lucide="credit-card" class="w-6 h-6 text-amber-600"></i>
+          <div class="text-left">
+            <p class="font-medium text-gray-900">Subscriptions</p>
+            <p class="text-xs text-gray-500">Manage plans</p>
+          </div>
+        </a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    lucide.createIcons();
+    
+    const token = localStorage.getItem('dukapos_token');
+
+    function formatNumber(num) {
+      return new Intl.NumberFormat('en-KE').format(Math.round(num || 0));
+    }
+
+    async function api(endpoint, options = {}) {
+      const res = await fetch(`/api/v1/admin${endpoint}`, {
+        ...options,
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}`, ...options.headers }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      return data;
+    }
+
+    async function loadDashboard() {
+      try {
+        const stats = await api('/dashboard');
+        
+        document.getElementById('totalAccounts').textContent = formatNumber(stats.total_accounts);
+        document.getElementById('totalShops').textContent = formatNumber(stats.total_shops);
+        document.getElementById('totalProducts').textContent = formatNumber(stats.total_products);
+        document.getElementById('totalSales').textContent = formatNumber(stats.total_sales);
+        document.getElementById('todaySales').textContent = formatNumber(stats.today_sales);
+        document.getElementById('todayRevenue').textContent = 'KSh ' + formatNumber(stats.today_revenue);
+
+        const total = stats.total_accounts || 1;
+        const free = total - stats.pro_accounts - stats.business_accounts;
+        
+        document.getElementById('freeCount').textContent = free;
+        document.getElementById('proCount').textContent = stats.pro_accounts;
+        document.getElementById('businessCount').textContent = stats.business_accounts;
+        
+        document.getElementById('freeBar').style.width = (free / total * 100) + '%';
+        document.getElementById('proBar').style.width = (stats.pro_accounts / total * 100) + '%';
+        document.getElementById('businessBar').style.width = (stats.business_accounts / total * 100) + '%';
+
+        loadRevenue();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    let revenueChart = null;
+
+    async function loadRevenue() {
+      try {
+        const days = document.getElementById('revenueDays').value;
+        const data = await api(`/revenue?days=${days}`);
+        
+        const ctx = document.getElementById('revenueChart').getContext('2d');
+        
+        if (revenueChart) {
+          revenueChart.destroy();
+        }
+
+        revenueChart = new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels: data.map(d => d.date),
+            datasets: [{
+              label: 'Revenue',
+              data: data.map(d => d.revenue),
+              borderColor: '#00A650',
+              backgroundColor: 'rgba(0, 166, 80, 0.1)',
+              fill: true,
+              tension: 0.4
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: { legend: { display: false } },
+            scales: {
+              y: { beginAtZero: true, ticks: { callback: v => 'KSh ' + formatNumber(v) } }
+            }
+          }
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function upgradeAll(plan) {
+      if (!confirm(`Are you sure you want to upgrade ALL accounts to ${plan} plan?`)) return;
+      
+      try {
+        await api('/upgrade-all', {
+          method: 'POST',
+          body: JSON.stringify({ plan })
+        });
+        alert(`All accounts upgraded to ${plan}!`);
+        loadDashboard();
+      } catch (e) {
+        alert(e.message);
+      }
+    }
+
+    loadDashboard();
+  </script>
+</body>
+</html>
