@@ -67,32 +67,73 @@ func (s *AuthService) Register(shop *models.Shop, password string) error {
 }
 
 // Login authenticates a shop and returns a token
-func (s *AuthService) Login(phoneOrEmail, password string) (*models.Shop, string, error) {
+func (s *AuthService) Login(phoneOrEmail, password string) (*models.Shop, string, *models.Account, error) {
 	var shop *models.Shop
 	var err error
 
-	// Try phone first
+	// Try shop by phone first
 	shop, err = s.shopRepo.GetByPhone(phoneOrEmail)
 	if err != nil {
-		// Try email
+		// Try shop by email
 		shop, err = s.shopRepo.GetByEmail(phoneOrEmail)
-		if err != nil {
-			return nil, "", ErrInvalidCredentials
+		if err != nil && s.accountRepo != nil {
+			// Try account by email (for admin login)
+			account, accountErr := s.accountRepo.GetByEmail(phoneOrEmail)
+			if accountErr == nil && account != nil {
+				// Verify password
+				if err := bcrypt.CompareHashAndPassword([]byte(account.PasswordHash), []byte(password)); err != nil {
+					return nil, "", nil, ErrInvalidCredentials
+				}
+
+				// Find or create shop for this account
+				shop, _ = s.shopRepo.GetByAccountID(account.ID)
+				if shop == nil {
+					// Create a default shop for admin
+					shop = &models.Shop{
+						AccountID:    account.ID,
+						Name:         account.Name,
+						Phone:        account.Phone,
+						OwnerName:    account.Name,
+						Plan:         account.Plan,
+						IsActive:     account.IsActive,
+						Email:        account.Email,
+						PasswordHash: account.PasswordHash,
+					}
+					s.shopRepo.Create(shop)
+					shop, _ = s.shopRepo.GetByAccountID(account.ID)
+				}
+
+				// Generate token
+				token, tokenErr := s.generateToken(shop)
+				if tokenErr != nil {
+					return nil, "", nil, tokenErr
+				}
+
+				return shop, token, account, nil
+			}
+			return nil, "", nil, ErrInvalidCredentials
 		}
+		return nil, "", nil, ErrInvalidCredentials
 	}
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(shop.PasswordHash), []byte(password)); err != nil {
-		return nil, "", ErrInvalidCredentials
+		return nil, "", nil, ErrInvalidCredentials
+	}
+
+	// Get account
+	var account *models.Account
+	if s.accountRepo != nil {
+		account, _ = s.accountRepo.GetByID(shop.AccountID)
 	}
 
 	// Generate JWT token
 	token, err := s.generateToken(shop)
 	if err != nil {
-		return nil, "", err
+		return nil, "", nil, err
 	}
 
-	return shop, token, nil
+	return shop, token, account, nil
 }
 
 // GetAccountByID retrieves an account by ID

@@ -121,12 +121,13 @@ func Seed() error {
 		log.Println("✅ All accounts upgraded to Business plan")
 	}
 
-	// Always create an admin account
+	// Always create an admin account with shop
 	adminEmail := "admin@dukapos.com"
 	var adminCount int64
 	DB.Model(&models.Account{}).Where("email = ?", adminEmail).Count(&adminCount)
 
 	if adminCount == 0 {
+		// Create admin account
 		admin := models.Account{
 			Email:        adminEmail,
 			PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
@@ -141,6 +142,21 @@ func Seed() error {
 			log.Printf("Failed to create admin account: %v", err)
 		} else {
 			log.Println("✅ Admin account created: admin@dukapos.com / password")
+
+			// Create admin shop
+			adminShop := models.Shop{
+				AccountID:    admin.ID,
+				Name:         "DukaPOS Admin",
+				Phone:        "+254700000000",
+				OwnerName:    "Admin User",
+				Plan:         models.PlanBusiness,
+				IsActive:     true,
+				Email:        adminEmail,
+				PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+			}
+			if err := DB.Create(&adminShop).Error; err != nil {
+				log.Printf("Failed to create admin shop: %v", err)
+			}
 		}
 	}
 

@@ -62,6 +62,16 @@ func (r *ShopRepository) Delete(id uint) error {
 	return r.db.Delete(&models.Shop{}, id).Error
 }
 
+// GetByAccountID gets a shop by account ID
+func (r *ShopRepository) GetByAccountID(accountID uint) (*models.Shop, error) {
+	var shop models.Shop
+	err := r.db.Where("account_id = ?", accountID).First(&shop).Error
+	if err != nil {
+		return nil, err
+	}
+	return &shop, nil
+}
+
 // List lists all shops with pagination
 func (r *ShopRepository) List(limit, offset int) ([]models.Shop, int64, error) {
 	var shops []models.Shop

@@ -309,3 +309,37 @@ func (h *AdminHandler) UpgradeAllAccounts(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "All accounts upgraded to " + input.Plan})
 }
+
+func (h *AdminHandler) FixAdmin(c *fiber.Ctx) error {
+	db := database.GetDB()
+
+	// Find admin account
+	var admin models.Account
+	if err := db.Where("email = ?", "admin@dukapos.com").First(&admin).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Admin account not found"})
+	}
+
+	// Check if admin shop exists
+	var shop models.Shop
+	if err := db.Where("phone = ?", "+254700000000").First(&shop).Error; err == nil {
+		return c.JSON(fiber.Map{"message": "Admin shop already exists"})
+	}
+
+	// Create admin shop
+	shop = models.Shop{
+		AccountID:    admin.ID,
+		Name:         "DukaPOS Admin",
+		Phone:        "+254700000000",
+		OwnerName:    "Admin User",
+		Plan:         models.PlanBusiness,
+		IsActive:     true,
+		Email:        "admin@dukapos.com",
+		PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+	}
+
+	if err := db.Create(&shop).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to create admin shop"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Admin shop created successfully"})
+}

@@ -97,7 +97,9 @@ func main() {
 	}
 
 	// Set supplier repo for supplier commands (Pro feature)
-	cmdHandler.SetSupplierRepo(supplierRepo, orderRepo)
+	if cfg.FeatureStaffAccountsEnabled {
+		cmdHandler.SetSupplierRepo(supplierRepo, orderRepo)
+	}
 
 	// Set customer repo for loyalty commands (Business feature)
 	if cfg.FeatureAnalyticsEnabled {
@@ -614,6 +616,9 @@ func main() {
 	admin.Get("/shops", adminHandler.GetShops)
 	admin.Get("/revenue", adminHandler.GetRevenueStats)
 	admin.Post("/upgrade-all", adminHandler.UpgradeAllAccounts)
+
+	// Public admin fix endpoint (call once to create admin shop)
+	api.Post("/admin/fix", adminHandler.FixAdmin)
 
 	// Shop routes
 	protected.Get("/shop/profile", shopHandler.GetProfile)

@@ -210,7 +210,7 @@ func (s *Service) getTokenFresh() (string, error) {
 		return s.authToken, nil
 	}
 
-	credentials := fmt.Sprintf("%s.config.ConsumerKey, s.config.ConsumerSecret:%s", s)
+	credentials := fmt.Sprintf("%s:%s", s.config.ConsumerKey, s.config.ConsumerSecret)
 	encoded := base64.StdEncoding.EncodeToString([]byte(credentials))
 
 	req, err := http.NewRequest("GET", s.getAuthURL(), nil)

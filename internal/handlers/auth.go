@@ -85,7 +85,7 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	// Generate token
-	_, token, err := h.authService.Login(req.Phone, req.Password)
+	_, token, _, err := h.authService.Login(req.Phone, req.Password)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": "Failed to generate token",
@@ -93,8 +93,9 @@ func (h *AuthHandler) Register(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{
-		"shop":  shop,
-		"token": token,
+		"shop":    shop,
+		"token":   token,
+		"account": nil,
 	})
 }
 
@@ -125,7 +126,7 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		identifier = req.Email
 	}
 
-	shop, token, err := h.authService.Login(identifier, req.Password)
+	shop, token, account, err := h.authService.Login(identifier, req.Password)
 	if err != nil {
 		if err == services.ErrInvalidCredentials {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
@@ -136,9 +137,6 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 			"error": "Login failed",
 		})
 	}
-
-	// Get account info for admin check
-	account, _ := h.authService.GetAccountByID(shop.AccountID)
 
 	return c.JSON(fiber.Map{
 		"shop":    shop,
