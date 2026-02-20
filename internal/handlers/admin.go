@@ -17,10 +17,10 @@ func NewAdminHandler() *AdminHandler {
 func (h *AdminHandler) requireAdmin(c *fiber.Ctx) error {
 	account, ok := c.Locals("account").(*models.Account)
 	if !ok || account == nil {
-		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized"})
+		return c.Status(401).JSON(fiber.Map{"error": "Unauthorized - Please login"})
 	}
 	if !account.IsAdmin {
-		return c.Status(403).JSON(fiber.Map{"error": "Admin access required"})
+		return c.Status(403).JSON(fiber.Map{"error": "Forbidden - Admin access required"})
 	}
 	return nil
 }

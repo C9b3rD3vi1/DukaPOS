@@ -83,6 +83,7 @@ func main() {
 
 	// ========== Initialize Services ==========
 	authService := services.NewAuthService(shopRepo, cfg)
+	authService.SetAccountRepo(accountRepo)
 	cmdHandler := services.NewCommandHandler(shopRepo, productRepo, saleRepo, summaryRepo, auditRepo)
 
 	// Set account repo for multi-shop support
@@ -510,7 +511,10 @@ func main() {
 
 		// Admin Routes
 		web.Get("/admin", func(c *fiber.Ctx) error {
-			return c.Redirect("/admin/dashboard")
+			return c.Redirect("/admin/login")
+		})
+		web.Get("/admin/login", func(c *fiber.Ctx) error {
+			return c.SendFile("./templates/admin/login.html")
 		})
 		web.Get("/admin/dashboard", func(c *fiber.Ctx) error {
 			return c.SendFile("./templates/admin/dashboard.html")
@@ -601,6 +605,7 @@ func main() {
 	// ========== Admin Routes ==========
 	adminHandler := handlers.NewAdminHandler()
 	admin := protected.Group("/admin")
+	admin.Use(middleware.RequireAdmin())
 	admin.Get("/dashboard", adminHandler.Dashboard)
 	admin.Get("/accounts", adminHandler.GetAccounts)
 	admin.Get("/accounts/:id", adminHandler.GetAccount)

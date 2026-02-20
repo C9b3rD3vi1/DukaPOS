@@ -208,6 +208,12 @@
     lucide.createIcons();
     
     const token = localStorage.getItem('dukapos_token');
+    const isAdmin = localStorage.getItem('dukapos_admin') === 'true';
+    
+    // Check if user is admin
+    if (!token || !isAdmin) {
+      window.location.href = '/admin/login';
+    }
 
     function formatNumber(num) {
       return new Intl.NumberFormat('en-KE').format(Math.round(num || 0));

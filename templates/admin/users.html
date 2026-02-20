@@ -154,6 +154,14 @@
   <script>
     lucide.createIcons();
     
+    const token = localStorage.getItem('dukapos_token');
+    const isAdmin = localStorage.getItem('dukapos_admin') === 'true';
+    
+    // Check if user is admin
+    if (!token || !isAdmin) {
+      window.location.href = '/admin/login';
+    }
+    
     let currentPage = 1;
     let currentUserId = null;
     let searchTimeout = null;

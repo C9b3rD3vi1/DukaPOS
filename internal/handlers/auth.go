@@ -137,9 +137,13 @@ func (h *AuthHandler) Login(c *fiber.Ctx) error {
 		})
 	}
 
+	// Get account info for admin check
+	account, _ := h.authService.GetAccountByID(shop.AccountID)
+
 	return c.JSON(fiber.Map{
-		"shop":  shop,
-		"token": token,
+		"shop":    shop,
+		"token":   token,
+		"account": account,
 	})
 }
 

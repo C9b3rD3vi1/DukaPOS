@@ -13,14 +13,15 @@ import (
 
 var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
-	ErrShopExists        = errors.New("shop already exists with this phone/email")
-	ErrTokenExpired      = errors.New("token has expired")
+	ErrShopExists         = errors.New("shop already exists with this phone/email")
+	ErrTokenExpired       = errors.New("token has expired")
 )
 
 // AuthService handles authentication
 type AuthService struct {
-	shopRepo *repository.ShopRepository
-	cfg      *config.Config
+	shopRepo    *repository.ShopRepository
+	accountRepo *repository.AccountRepository
+	cfg         *config.Config
 }
 
 // NewAuthService creates a new auth service
@@ -29,6 +30,11 @@ func NewAuthService(shopRepo *repository.ShopRepository, cfg *config.Config) *Au
 		shopRepo: shopRepo,
 		cfg:      cfg,
 	}
+}
+
+// SetAccountRepo sets the account repository
+func (s *AuthService) SetAccountRepo(accountRepo *repository.AccountRepository) {
+	s.accountRepo = accountRepo
 }
 
 // Register creates a new shop account
@@ -87,6 +93,14 @@ func (s *AuthService) Login(phoneOrEmail, password string) (*models.Shop, string
 	}
 
 	return shop, token, nil
+}
+
+// GetAccountByID retrieves an account by ID
+func (s *AuthService) GetAccountByID(id uint) (*models.Account, error) {
+	if s.accountRepo == nil {
+		return nil, nil
+	}
+	return s.accountRepo.GetByID(id)
 }
 
 // ValidateToken validates a JWT token and returns the shop
