@@ -3,10 +3,12 @@ package database
 import (
 	"fmt"
 	"log"
+	"os"
 	"time"
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/config"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/postgres"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -110,6 +112,17 @@ func Migrate() error {
 func Seed() error {
 	log.Println("🌱 Checking for seed data...")
 
+	// Check if seed is enabled (disabled by default for security)
+	seedEnabled := os.Getenv("SEED_DATA") == "true"
+
+	if !seedEnabled {
+		log.Println("⏭️  Seed disabled - set SEED_DATA=true to enable demo data")
+		log.Println("⚠️  SECURITY: No demo accounts created")
+		return nil
+	}
+
+	log.Println("⚠️  WARNING: Seed data is enabled - creating demo accounts!")
+
 	var count int64
 	DB.Model(&models.Account{}).Count(&count)
 
@@ -121,41 +134,35 @@ func Seed() error {
 		log.Println("✅ All accounts upgraded to Business plan")
 	}
 
-	// Always create an admin account with shop
-	adminEmail := "admin@dukapos.com"
-	var adminCount int64
-	DB.Model(&models.Account{}).Where("email = ?", adminEmail).Count(&adminCount)
+	// Create admin account ONLY if credentials are provided via environment
+	adminEmail := os.Getenv("ADMIN_EMAIL")
+	adminPassword := os.Getenv("ADMIN_PASSWORD")
 
-	if adminCount == 0 {
-		// Create admin account
-		admin := models.Account{
-			Email:        adminEmail,
-			PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
-			Name:         "Admin User",
-			Phone:        "+254700000000",
-			IsActive:     true,
-			IsVerified:   true,
-			Plan:         models.PlanBusiness,
-			IsAdmin:      true,
-		}
-		if err := DB.Create(&admin).Error; err != nil {
-			log.Printf("Failed to create admin account: %v", err)
-		} else {
-			log.Println("✅ Admin account created: admin@dukapos.com / password")
+	if adminEmail != "" && adminPassword != "" {
+		var adminCount int64
+		DB.Model(&models.Account{}).Where("email = ?", adminEmail).Count(&adminCount)
 
-			// Create admin shop
-			adminShop := models.Shop{
-				AccountID:    admin.ID,
-				Name:         "DukaPOS Admin",
-				Phone:        "+254700000000",
-				OwnerName:    "Admin User",
-				Plan:         models.PlanBusiness,
-				IsActive:     true,
-				Email:        adminEmail,
-				PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
-			}
-			if err := DB.Create(&adminShop).Error; err != nil {
-				log.Printf("Failed to create admin shop: %v", err)
+		if adminCount == 0 {
+			// Hash the password
+			hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminPassword), bcrypt.DefaultCost)
+			if err != nil {
+				log.Printf("Failed to hash admin password: %v", err)
+			} else {
+				admin := models.Account{
+					Email:        adminEmail,
+					PasswordHash: string(hashedPassword),
+					Name:         "Admin User",
+					Phone:        os.Getenv("ADMIN_PHONE"),
+					IsActive:     true,
+					IsVerified:   true,
+					Plan:         models.PlanBusiness,
+					IsAdmin:      true,
+				}
+				if err := DB.Create(&admin).Error; err != nil {
+					log.Printf("Failed to create admin account: %v", err)
+				} else {
+					log.Printf("✅ Admin account created: %s", adminEmail)
+				}
 			}
 		}
 	}
@@ -165,10 +172,26 @@ func Seed() error {
 		return nil
 	}
 
+	// Create demo account ONLY if explicitly enabled (not for production)
+	// Users should register through the auth system: POST /api/auth/register
+	// Demo accounts require SEED_DATA=true AND DEMO_ACCOUNTS=true
+	demoEnabled := os.Getenv("DEMO_ACCOUNTS") == "true"
+
+	if !demoEnabled {
+		log.Println("⏭️  Demo accounts disabled - users should register via /api/auth/register")
+		return nil
+	}
+
+	log.Println("⚠️  WARNING: Creating demo accounts!")
+
+	// Generate a random password for demo account
+	demoPassword := fmt.Sprintf("demo_%d", time.Now().UnixNano())
+	hashedDemoPassword, _ := bcrypt.GenerateFromPassword([]byte(demoPassword), bcrypt.DefaultCost)
+
 	account := models.Account{
-		Email:        "test@dukapos.com",
-		PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
-		Name:         "John Doe",
+		Email:        "demo@dukapos.com",
+		PasswordHash: string(hashedDemoPassword),
+		Name:         "Demo User",
 		Phone:        "+254700000001",
 		IsActive:     true,
 		IsVerified:   true,
@@ -229,8 +252,7 @@ func Seed() error {
 	}
 
 	log.Println("✅ Seed data created successfully")
-	log.Println("📱 Test shop phone: +254700000001")
-	log.Println("🔑 Test password: password")
+	log.Println("📱 Demo account created - use /api/auth/login to authenticate")
 	return nil
 }
 

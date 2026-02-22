@@ -27,18 +27,21 @@ const (
 
 // Account represents an owner account that can own multiple shops
 type Account struct {
-	ID           uint           `gorm:"primaryKey" json:"id"`
-	Email        string         `gorm:"size:100;uniqueIndex;not null" json:"email"`
-	PasswordHash string         `gorm:"size:255;not null" json:"-"`
-	Name         string         `gorm:"size:100;not null" json:"name"`
-	Phone        string         `gorm:"size:20;uniqueIndex;not null" json:"phone"`
-	IsActive     bool           `gorm:"default:true" json:"is_active"`
-	IsVerified   bool           `gorm:"default:false" json:"is_verified"`
-	IsAdmin      bool           `gorm:"default:false" json:"is_admin"`
-	Plan         PlanType       `gorm:"size:20;default:free" json:"plan"`
-	CreatedAt    time.Time      `json:"created_at"`
-	UpdatedAt    time.Time      `json:"updated_at"`
-	DeletedAt    gorm.DeletedAt `gorm:"index" json:"-"`
+	ID                  uint           `gorm:"primaryKey" json:"id"`
+	Email               string         `gorm:"size:100;uniqueIndex;not null" json:"email"`
+	PasswordHash        string         `gorm:"size:255;not null" json:"-"`
+	Name                string         `gorm:"size:100;not null" json:"name"`
+	Phone               string         `gorm:"size:20;uniqueIndex;not null" json:"phone"`
+	IsActive            bool           `gorm:"default:true" json:"is_active"`
+	IsVerified          bool           `gorm:"default:false" json:"is_verified"`
+	IsAdmin             bool           `gorm:"default:false" json:"is_admin"`
+	Plan                PlanType       `gorm:"size:20;default:free" json:"plan"`
+	FailedLoginAttempts int            `gorm:"default:0" json:"failed_login_attempts"`
+	LockedUntil         *time.Time     `json:"locked_until"`
+	LastFailedLogin     *time.Time     `json:"last_failed_login"`
+	CreatedAt           time.Time      `json:"created_at"`
+	UpdatedAt           time.Time      `json:"updated_at"`
+	DeletedAt           gorm.DeletedAt `gorm:"index" json:"-"`
 
 	// Relations
 	Shops []Shop `gorm:"foreignKey:AccountID" json:"shops,omitempty"`
@@ -78,6 +81,9 @@ type Product struct {
 	Unit              string         `gorm:"size:20;default:pcs" json:"unit"`
 	CostPrice         float64        `gorm:"type:decimal(12,2);default:0" json:"cost_price"`
 	SellingPrice      float64        `gorm:"type:decimal(12,2);not null" json:"selling_price"`
+	Currency          string         `gorm:"size:3;default:KES" json:"currency"`
+	AltCurrency       string         `gorm:"size:3" json:"alt_currency"`
+	AltPrice          float64        `gorm:"type:decimal(12,2)" json:"alt_price"`
 	CurrentStock      int            `gorm:"default:0" json:"current_stock"`
 	LowStockThreshold int            `gorm:"default:10" json:"low_stock_threshold"`
 	Barcode           string         `gorm:"size:50" json:"barcode"`

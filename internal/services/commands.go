@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -9,6 +10,10 @@ import (
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/repository"
+	"github.com/C9b3rD3vi1/DukaPOS/internal/services/ai"
+	"github.com/C9b3rD3vi1/DukaPOS/internal/services/mpesa"
+	"github.com/C9b3rD3vi1/DukaPOS/internal/services/qr"
+	webhooksvc "github.com/C9b3rD3vi1/DukaPOS/internal/services/webhook"
 	"gorm.io/gorm"
 )
 
@@ -68,20 +73,25 @@ func (p *CommandParser) Parse(message string) *ParsedCommand {
 
 // CommandHandler handles WhatsApp commands
 type CommandHandler struct {
-	shopRepo     *repository.ShopRepository
-	productRepo  *repository.ProductRepository
-	saleRepo     *repository.SaleRepository
-	summaryRepo  *repository.DailySummaryRepository
-	auditRepo    *repository.AuditLogRepository
-	accountRepo  *repository.AccountRepository
-	staffRepo    *repository.StaffRepository
-	supplierRepo *repository.SupplierRepository
-	orderRepo    *repository.OrderRepository
-	customerRepo *repository.CustomerRepository
+	db            *gorm.DB
+	shopRepo      *repository.ShopRepository
+	productRepo   *repository.ProductRepository
+	saleRepo      *repository.SaleRepository
+	summaryRepo   *repository.DailySummaryRepository
+	auditRepo     *repository.AuditLogRepository
+	accountRepo   *repository.AccountRepository
+	staffRepo     *repository.StaffRepository
+	supplierRepo  *repository.SupplierRepository
+	orderRepo     *repository.OrderRepository
+	customerRepo  *repository.CustomerRepository
+	mpesaSvc      *mpesa.Service
+	qrSvc         *qr.QRPaymentService
+	predictionSvc *ai.PredictionService
 }
 
 // NewCommandHandler creates a new command handler
 func NewCommandHandler(
+	db *gorm.DB,
 	shopRepo *repository.ShopRepository,
 	productRepo *repository.ProductRepository,
 	saleRepo *repository.SaleRepository,
@@ -89,6 +99,7 @@ func NewCommandHandler(
 	auditRepo *repository.AuditLogRepository,
 ) *CommandHandler {
 	return &CommandHandler{
+		db:          db,
 		shopRepo:    shopRepo,
 		productRepo: productRepo,
 		saleRepo:    saleRepo,
@@ -116,6 +127,21 @@ func (h *CommandHandler) SetSupplierRepo(supplierRepo *repository.SupplierReposi
 // SetCustomerRepo sets the customer repository for loyalty
 func (h *CommandHandler) SetCustomerRepo(customerRepo *repository.CustomerRepository) {
 	h.customerRepo = customerRepo
+}
+
+// SetMpesaService sets the M-Pesa service for WhatsApp payments
+func (h *CommandHandler) SetMpesaService(mpesaSvc *mpesa.Service) {
+	h.mpesaSvc = mpesaSvc
+}
+
+// SetQRService sets the QR payment service
+func (h *CommandHandler) SetQRService(qrSvc *qr.QRPaymentService) {
+	h.qrSvc = qrSvc
+}
+
+// SetPredictionService sets the AI prediction service
+func (h *CommandHandler) SetPredictionService(predictionSvc *ai.PredictionService) {
+	h.predictionSvc = predictionSvc
 }
 
 // Handle processes a command and returns a response
@@ -479,13 +505,28 @@ func (h *CommandHandler) handleSell(shop *models.Shop, args []string) (string, e
 		PaymentMethod: models.PaymentCash,
 	}
 
-	if err := h.saleRepo.Create(sale); err != nil {
-		return "", err
-	}
-
-	// Update stock
-	if err := h.productRepo.UpdateStock(product.ID, -qty); err != nil {
-		return "", err
+	// Use database transaction for consistency
+	if h.db != nil {
+		err := h.db.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Create(sale).Error; err != nil {
+				return err
+			}
+			if err := tx.Model(&models.Product{}).Where("id = ?", product.ID).
+				Update("current_stock", gorm.Expr("current_stock - ?", qty)).Error; err != nil {
+				return err
+			}
+			return nil
+		})
+		if err != nil {
+			return "", err
+		}
+	} else {
+		if err := h.saleRepo.Create(sale); err != nil {
+			return "", err
+		}
+		if err := h.productRepo.UpdateStock(product.ID, -qty); err != nil {
+			return "", err
+		}
 	}
 
 	// Recalculate daily summary
@@ -502,10 +543,29 @@ func (h *CommandHandler) handleSell(shop *models.Shop, args []string) (string, e
 		Details:    fmt.Sprintf("Sold: %s, qty: %d, total: %.2f", name, qty, totalAmount),
 	})
 
+	// Trigger webhook event
+	webhooksvc.TriggerSaleCreated(sale, product)
+
+	// Award loyalty points if customer is using loyalty
+	pointsAwarded := 0
+	if h.customerRepo != nil && len(args) >= 3 {
+		customerPhone := args[2]
+		if customer, err := h.customerRepo.GetByPhone(shop.ID, customerPhone); err == nil {
+			pointsAwarded = int(totalAmount / 10)
+			if err := h.customerRepo.AddPoints(customer.ID, pointsAwarded); err == nil {
+				webhooksvc.TriggerCustomerCreated(customer)
+			}
+		}
+	}
+
 	// Check if now low on stock
 	remainingStock := product.CurrentStock - qty
 	response := fmt.Sprintf("✅ SOLD!\n%s x%d = KSh %.0f\n💵 Profit: KSh %.0f\n📦 Remaining: %d %s",
 		product.Name, qty, totalAmount, profit, remainingStock, product.Unit)
+
+	if pointsAwarded > 0 {
+		response += fmt.Sprintf("\n💎 +%d loyalty points!", pointsAwarded)
+	}
 
 	if remainingStock <= product.LowStockThreshold {
 		response += fmt.Sprintf("\n⚠️ LOW STOCK! Only %d left!", remainingStock)
@@ -1120,17 +1180,15 @@ cost %s [new cost]`, product.Name, product.CostPrice, product.SellingPrice, marg
 
 // handleBackup handles backup commands
 func (h *CommandHandler) handleBackup(shop *models.Shop) (string, error) {
-	// This would trigger a backup in production
 	return `💾 BACKUP
 
-Backup features:
-• Manual backup - Coming soon
-• Auto backup - Daily at 2 AM
-• Export data - Coming soon
+Your data is automatically backed up daily at 2 AM.
 
-Your data is automatically backed up daily.
+To export your data:
+• Visit: /export on web dashboard
+• Or use API: /api/v1/export
 
-Contact support for data export.`, nil
+Contact support for custom backup requests.`, nil
 }
 
 // handleThreshold handles threshold/limit command for low stock alerts
@@ -1331,17 +1389,30 @@ Example: supplier add Brookside +254700000000`, nil
 
 	case "view":
 		if len(args) < 2 {
-			return "❌ Usage: supplier view [name/number]", nil
+			return "❌ Usage: supplier view [name]", nil
 		}
-		// Could implement viewing supplier details
-		return "Supplier details coming soon!", nil
+		searchName := strings.Join(args[1:], " ")
+		supplier, err := h.supplierRepo.GetByName(shop.ID, searchName)
+		if err != nil {
+			return "❌ Supplier not found.\nUse: supplier to list all suppliers", nil
+		}
+
+		return fmt.Sprintf(`📦 SUPPLIER DETAILS
+
+🏢 %s
+📱 %s
+📧 %s
+📍 %s
+
+Added: %s`,
+			supplier.Name, supplier.Phone, supplier.Email, supplier.Address, supplier.CreatedAt.Format("02 Jan 2006")), nil
 
 	default:
 		return `📦 SUPPLIER COMMANDS:
 
 supplier - List all suppliers
 supplier add [name] [phone] - Add supplier
-supplier view [name] - View details (coming soon)
+supplier view [name] - View details
 
 Example: supplier add Brookside +254700000000`, nil
 	}
@@ -1363,6 +1434,47 @@ Reply: upgrade`, nil
 		return "⚙️ Order feature not available.\nContact support.", nil
 	}
 
+	// Handle view subcommand
+	if len(args) > 0 && args[0] == "view" {
+		if len(args) < 2 {
+			return "❌ Usage: order view [order_id]", nil
+		}
+		orderID, err := strconv.ParseUint(args[1], 10, 32)
+		if err != nil {
+			return "❌ Invalid order ID", nil
+		}
+
+		order, err := h.orderRepo.GetByID(uint(orderID))
+		if err != nil {
+			return "❌ Order not found", nil
+		}
+
+		if order.ShopID != shop.ID {
+			return "❌ Order not found", nil
+		}
+
+		statusIcon := "⏳"
+		switch order.Status {
+		case "delivered":
+			statusIcon = "✅"
+		case "cancelled":
+			statusIcon = "❌"
+		case "shipped":
+			statusIcon = "📦"
+		case "pending":
+			statusIcon = "⏳"
+		}
+
+		return fmt.Sprintf(`📋 ORDER #%d
+
+💰 Total: KSh %.0f
+📦 Status: %s %s
+📅 Created: %s
+📝 Notes: %s`,
+			order.ID, order.TotalAmount, order.Status, statusIcon,
+			order.CreatedAt.Format("02 Jan 2006 15:04"), order.Notes), nil
+	}
+
 	if len(args) < 1 {
 		// List recent orders
 		orders, err := h.orderRepo.GetByShopID(shop.ID)
@@ -1374,8 +1486,7 @@ Reply: upgrade`, nil
 
 No orders yet.
 
-Create order via dashboard or API.
-Coming soon to WhatsApp!`, nil
+Create orders via dashboard or API.`, nil
 		}
 		var sb strings.Builder
 		sb.WriteString("📋 RECENT ORDERS:\n\n")
@@ -1401,7 +1512,7 @@ Coming soon to WhatsApp!`, nil
 	return `📋 ORDER COMMANDS:
 
 order - Recent orders
-order view [id] - Order details (coming soon)
+order view [id] - Order details
 
 Manage orders via dashboard.`, nil
 }
@@ -1502,7 +1613,47 @@ Example: pay 500`, nil
 		if err != nil || amount <= 0 {
 			return "❌ Invalid amount", nil
 		}
-		// In production, this would trigger STK Push
+
+		if h.mpesaSvc == nil {
+			return `⚠️ M-Pesa service not configured.
+
+To enable M-Pesa payments:
+1. Get M-Pesa API credentials from Safaricom
+2. Configure in dashboard
+
+Contact support for setup assistance.`, nil
+		}
+
+		req := &mpesa.PaymentRequest{
+			Phone:            shop.Phone,
+			Amount:           float64(amount),
+			AccountReference: fmt.Sprintf("DUKA%d", shop.ID),
+			Description:      fmt.Sprintf("Payment to %s", shop.Name),
+			ShopID:           shop.ID,
+		}
+
+		payment, stkResp, err := h.mpesaSvc.InitiateSTKPush(context.Background(), req)
+		if err != nil {
+			return fmt.Sprintf(`❌ Payment failed: %v
+
+Please try again or contact support.`, err), nil
+		}
+
+		if payment != nil {
+			return fmt.Sprintf(`📲 STK Push Sent!
+
+Amount: KSh %d
+To: %s
+Reference: %s
+
+💡 Customer will receive a payment prompt on their phone.
+
+Checkout ID: %s
+
+Reply "mpesa status %s" to check payment status.`,
+				amount, shop.Phone, req.AccountReference, payment.CheckoutRequestID, payment.CheckoutRequestID[:8]), nil
+		}
+
 		return fmt.Sprintf(`📲 STK Push Sent!
 
 Amount: KSh %d
@@ -1510,10 +1661,43 @@ To: %s
 
 💡 Customer will receive a payment prompt on their phone.
 
-Note: M-Pesa integration requires API configuration. Contact support to activate.`, amount, shop.Phone), nil
+%s`,
+			amount, shop.Phone, stkResp.CustomerMessage), nil
 
 	case "status":
-		return "💰 Payment status: Pending\nNote: Configure M-Pesa API credentials to enable live status checks.", nil
+		if len(args) < 2 {
+			return "❌ Usage: mpesa status [checkout_id]\nExample: mpesa status wsCOGZY", nil
+		}
+		checkoutID := args[1]
+		if len(checkoutID) < 8 {
+			checkoutID = checkoutID + "xxxxx"
+		}
+
+		if h.mpesaSvc == nil {
+			return "💰 Payment status: Unknown\nNote: Configure M-Pesa API to enable status checks.", nil
+		}
+
+		status, err := h.mpesaSvc.QuerySTKStatus(context.Background(), checkoutID)
+		if err != nil {
+			return fmt.Sprintf("❌ Failed to check status: %v", err), nil
+		}
+
+		resultCode, _ := strconv.Atoi(status.ResponseCode)
+		if resultCode == 0 {
+			return fmt.Sprintf(`✅ Payment Successful!
+
+Checkout ID: %s
+Status: %s
+
+Thank you for your payment!`, checkoutID, status.ResponseDescription), nil
+		}
+
+		return fmt.Sprintf(`⏳ Payment Status: Pending
+
+%s
+
+Reply with "mpesa status %s" to check again.`,
+			status.CustomerMessage, checkoutID[:8]), nil
 
 	default:
 		return "❌ Unknown M-Pesa command. Use: mpesa pay [amount]", nil
@@ -1894,6 +2078,12 @@ Features:
 Reply: business to upgrade`, nil
 	}
 
+	if h.predictionSvc == nil {
+		return `⚠️ AI Prediction service not configured.
+
+Contact support to enable AI predictions.`, nil
+	}
+
 	if len(args) < 1 {
 		return `🤖 AI PREDICTIONS:
 
@@ -1901,51 +2091,157 @@ predict stock - Inventory predictions
 predict trends - Sales trends
 predict restock - Items needing restock
 
-Note: AI service requires database integration.`, nil
+Powered by AI analysis of your sales data.`, nil
 	}
 
 	switch args[0] {
 	case "stock", "inventory":
-		return `📊 AI INVENTORY PREDICTIONS
+		predictions, err := h.predictionSvc.GetRestockRecommendations(shop.ID)
+		if err != nil || len(predictions) == 0 {
+			return `📊 AI INVENTORY PREDICTIONS
 
-Top items needing attention:
-1. Milk - Stockout in 3 days ⚠️
-2. Bread - Stockout in 5 days
-3. Sugar - Stock OK (14 days)
+Not enough data for predictions yet.
+Keep recording sales to build prediction data.
 
-Confidence: 78%
+Tip: Need at least 7 days of sales data.`, nil
+		}
 
-Note: Connect AI service for live predictions.`, nil
+		var sb strings.Builder
+		sb.WriteString("📊 AI INVENTORY PREDICTIONS\n\n")
+
+		urgent := 0
+		warning := 0
+		for _, p := range predictions {
+			if p.Priority == "urgent" {
+				urgent++
+			} else if p.Priority == "warning" {
+				warning++
+			}
+		}
+
+		sb.WriteString(fmt.Sprintf("⚠️ Urgent: %d | ⚡ Warning: %d | ✅ OK: %d\n\n",
+			urgent, warning, len(predictions)-urgent-warning))
+
+		sb.WriteString("Top items needing attention:\n")
+		for i, p := range predictions {
+			if i >= 5 {
+				break
+			}
+			emoji := "✅"
+			if p.Priority == "urgent" {
+				emoji = "⚠️"
+			} else if p.Priority == "warning" {
+				emoji = "⚡"
+			}
+			sb.WriteString(fmt.Sprintf("%d. %s - Stockout in %d days %s\n",
+				i+1, p.ProductName, p.DaysUntilStockout, emoji))
+		}
+
+		if len(predictions) > 0 && predictions[0].Confidence > 0 {
+			sb.WriteString(fmt.Sprintf("\nConfidence: %.0f%%", predictions[0].Confidence*100))
+		}
+
+		return sb.String(), nil
 
 	case "trends":
-		return `📈 SALES TRENDS
+		analytics, err := h.predictionSvc.GetSalesAnalytics(shop.ID, 7)
+		if err != nil || analytics.TotalRevenue == 0 {
+			return `📈 SALES TRENDS
 
-This Week: +12% ↑
-Last Week: +8% ↑
+Not enough data for trends analysis.
+Keep recording sales to build trend data.
 
-Top Categories:
-1. Dairy: +15%
-2. Beverages: +10%
-3. Snacks: +5%
+Tip: Need at least 7 days of sales data.`, nil
+		}
 
-Note: Analytics integration required.`, nil
+		prevAnalytics, _ := h.predictionSvc.GetSalesAnalytics(shop.ID, 14)
+		change := 0.0
+		if prevAnalytics.TotalRevenue > 0 {
+			change = ((analytics.TotalRevenue - prevAnalytics.TotalRevenue) / prevAnalytics.TotalRevenue) * 100
+		}
+
+		emoji := "➡️"
+		if change > 5 {
+			emoji = "📈"
+		} else if change < -5 {
+			emoji = "📉"
+		}
+
+		return fmt.Sprintf(`📈 SALES TRENDS (Last 7 Days)
+
+This Week: %.0f%% %s
+
+💰 Revenue: KSh %.0f
+📝 Transactions: %d
+💵 Avg Sale: KSh %.0f
+
+Top Products:
+%s
+
+Last Updated: %s`, change, emoji, analytics.TotalRevenue, analytics.TransactionCount, analytics.AvgTransaction,
+			formatTopProducts(analytics.TopProducts), time.Now().Format("02 Jan 15:04")), nil
 
 	case "restock":
-		return `📦 RESTOCK ALERTS
+		predictions, err := h.predictionSvc.GetRestockRecommendations(shop.ID)
+		if err != nil || len(predictions) == 0 {
+			return `📦 RESTOCK ALERTS
 
-⚠️ URGENT (next 3 days):
-• Milk: Order 100 units
-• Bread: Order 50 units
+Not enough data for restock predictions.
+Keep recording sales to build prediction data.`, nil
+		}
 
-📋 This Week:
-• Eggs: Order 30 units
-• Sugar: Order 20 units
+		var sb strings.Builder
+		sb.WriteString("📦 RESTOCK ALERTS\n\n")
 
-Note: AI predictions require setup.`, nil
+		urgent := []ai.ProductPrediction{}
+		week := []ai.ProductPrediction{}
+
+		for _, p := range predictions {
+			if p.DaysUntilStockout <= 3 {
+				urgent = append(urgent, p)
+			} else if p.DaysUntilStockout <= 7 {
+				week = append(week, p)
+			}
+		}
+
+		if len(urgent) > 0 {
+			sb.WriteString("⚠️ URGENT (next 3 days):\n")
+			for _, p := range urgent {
+				sb.WriteString(fmt.Sprintf("• %s: Order %d units\n", p.ProductName, p.RecommendedOrder))
+			}
+			sb.WriteString("\n")
+		}
+
+		if len(week) > 0 {
+			sb.WriteString("📋 This Week:\n")
+			for _, p := range week {
+				sb.WriteString(fmt.Sprintf("• %s: Order %d units\n", p.ProductName, p.RecommendedOrder))
+			}
+		}
+
+		if len(urgent) == 0 && len(week) == 0 {
+			sb.WriteString("✅ All products are well stocked!")
+		}
+
+		return sb.String(), nil
 
 	default:
 		return "❌ Unknown predict command. Use: predict stock, predict trends, or predict restock", nil
 	}
+}
+
+func formatTopProducts(products []ai.ProductSummary) string {
+	if len(products) == 0 {
+		return "No data yet"
+	}
+	var sb strings.Builder
+	for i, p := range products {
+		if i >= 3 {
+			break
+		}
+		sb.WriteString(fmt.Sprintf("%d. %s - KSh %.0f\n", i+1, p.Name, p.Revenue))
+	}
+	return sb.String()
 }
 
 // handleQR handles QR payment commands
@@ -1965,28 +2261,79 @@ Note: QR payments require Business plan.`, nil
 		if len(args) < 2 {
 			return "❌ Usage: qr generate [amount]\nExample: qr generate 500", nil
 		}
-		amount := args[1]
-		return fmt.Sprintf(`📱 QR CODE GENERATED
+		amountStr := args[1]
+		amount, err := strconv.Atoi(amountStr)
+		if err != nil || amount <= 0 {
+			return "❌ Invalid amount. Use a valid number.", nil
+		}
 
-Amount: KSh %s
+		if h.qrSvc == nil {
+			return `⚠️ QR service not configured.
+
+To enable QR payments:
+1. Enable M-Pesa in dashboard
+2. Upgrade to Business plan
+
+Contact support for setup.`, nil
+		}
+
+		req := &qr.DynamicQRRequest{
+			ShopID:      shop.ID,
+			Amount:      float64(amount),
+			Reference:   fmt.Sprintf("DUKA%d%d", shop.ID, time.Now().Unix()),
+			Description: fmt.Sprintf("Payment to %s", shop.Name),
+		}
+
+		resp, err := h.qrSvc.GenerateDynamicQR(context.Background(), req)
+		if err != nil {
+			return fmt.Sprintf("❌ Failed to generate QR: %v\n\nPlease try again.", err), nil
+		}
+
+		expiresIn := resp.ExpiresAt.Sub(time.Now()).Round(time.Minute)
+		return fmt.Sprintf(`📱 QR CODE READY!
+
+Amount: KSh %d
 Shop: %s
+Reference: %s
 
-[QR Code would appear here]
+📲 QR Code: %s
 
-Customer scans to pay via M-Pesa.
+⏰ Expires in: %d minutes
 
-Note: QR service requires configuration.`, amount, shop.Name), nil
+💡 Customer scans to pay via M-Pesa.
+
+Show this QR to your customer.`, amount, shop.Name, resp.Reference, resp.QRCode, int(expiresIn.Minutes())), nil
 
 	case "static":
+		if h.qrSvc == nil {
+			return `⚠️ QR service not configured.
+
+To get your shop's static QR:
+1. Enable M-Pesa in dashboard
+2. Generate from Settings > QR Codes
+
+Contact support for setup.`, nil
+		}
+
+		req := &qr.StaticQRRequest{
+			ShopID:   shop.ID,
+			ShopName: shop.Name,
+		}
+
+		resp, err := h.qrSvc.GenerateStaticQR(req)
+		if err != nil {
+			return fmt.Sprintf("❌ Failed to generate static QR: %v", err), nil
+		}
+
 		return fmt.Sprintf(`🏪 SHOP STATIC QR
 
 Shop: %s
+ID: %d
 
-[Static QR Code]
+📲 QR Code: %s
 
-Customers can scan this to pay any amount.
-
-Note: Generate from dashboard for production use.`, shop.Name), nil
+💡 Customers can scan to pay any amount.
+Print and display at your shop!`, shop.Name, shop.ID, resp.QRCode), nil
 
 	default:
 		return "❌ Unknown qr command. Use: qr generate [amount] or qr static", nil

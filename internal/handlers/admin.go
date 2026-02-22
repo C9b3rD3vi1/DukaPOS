@@ -325,16 +325,16 @@ func (h *AdminHandler) FixAdmin(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Admin shop already exists"})
 	}
 
-	// Create admin shop
+	// Create admin shop (use admin's password hash)
 	shop = models.Shop{
 		AccountID:    admin.ID,
 		Name:         "DukaPOS Admin",
-		Phone:        "+254700000000",
-		OwnerName:    "Admin User",
+		Phone:        admin.Phone,
+		OwnerName:    admin.Name,
 		Plan:         models.PlanBusiness,
 		IsActive:     true,
-		Email:        "admin@dukapos.com",
-		PasswordHash: "$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi",
+		Email:        admin.Email,
+		PasswordHash: admin.PasswordHash,
 	}
 
 	if err := db.Create(&shop).Error; err != nil {

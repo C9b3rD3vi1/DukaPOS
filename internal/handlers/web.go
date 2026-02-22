@@ -304,6 +304,7 @@ func (h *WebHandler) DashboardJSON(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"shop":         data.Shop,
 		"stats":        data.Stats,
+		"low_stock":    data.LowStock,
 		"recent_sales": data.RecentSales,
 		"top_products": data.TopProducts,
 		"weekly_data":  data.WeeklyData,

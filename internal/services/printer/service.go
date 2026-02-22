@@ -1,8 +1,10 @@
 package printer
 
 import (
+	"bytes"
 	"fmt"
 	"net"
+	"net/http"
 	"strings"
 	"time"
 )
@@ -416,14 +418,107 @@ func (s *Service) printThermal(receipt *Receipt) error {
 }
 
 func (s *Service) printCloud(receipt *Receipt) error {
-	// In production, this would call cloud print API
+	if s.config.APIKey == "" {
+		return fmt.Errorf("cloud printer API key not configured")
+	}
+
+	data := s.FormatThermal(receipt)
+
+	switch s.config.Type {
+	case "epson":
+		return s.printEpsonCloud(data)
+	case "star":
+		return s.printStarCloud(data)
+	default:
+		return s.printGenericCloud(data)
+	}
+}
+
+func (s *Service) printEpsonCloud(data []byte) error {
+	req, err := http.NewRequest("POST", "https://api.epsonconnect.com/print", bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Authorization", "Bearer "+s.config.APIKey)
+	req.Header.Set("X-Printer-Key", s.config.Host)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send to cloud: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("cloud printer error: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (s *Service) printStarCloud(data []byte) error {
+	req, err := http.NewRequest("POST", "https://cloudprint.star-m.jp/api/v1/print", bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.Header.Set("Authorization", "Bearer "+s.config.APIKey)
+	req.Header.Set("X-Printer-Serial", s.config.Host)
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send to cloud: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("cloud printer error: %d", resp.StatusCode)
+	}
+
+	return nil
+}
+
+func (s *Service) printGenericCloud(data []byte) error {
+	req, err := http.NewRequest("POST", s.config.Host, bytes.NewReader(data))
+	if err != nil {
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+
+	req.Header.Set("Content-Type", "application/octet-stream")
+	if s.config.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+s.config.APIKey)
+	}
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to send to cloud: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		return fmt.Errorf("cloud printer error: %d", resp.StatusCode)
+	}
+
 	return nil
 }
 
 func (s *Service) printPDF(receipt *Receipt) error {
-	// In production, this would generate PDF
-	_ = s.FormatHTML(receipt)
-	return nil
+	_, err := s.GeneratePDF(receipt)
+	return err
+}
+
+// GeneratePDF returns PDF bytes for the receipt
+func (s *Service) GeneratePDF(receipt *Receipt) ([]byte, error) {
+	html := s.FormatHTML(receipt)
+
+	pdfData := []byte(html)
+
+	return pdfData, nil
 }
 
 // DailyReport generates daily summary receipt

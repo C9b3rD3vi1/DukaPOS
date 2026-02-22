@@ -2,6 +2,8 @@ package currency
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -129,7 +131,33 @@ func (s *Service) SetDefault(code string) error {
 }
 
 func formatNumber(n float64) string {
-	return ""
+	if n == 0 {
+		return "0"
+	}
+
+	intPart := int(n)
+	decPart := int((n - float64(intPart)) * 100)
+
+	if decPart == 0 {
+		return formatWithCommas(intPart)
+	}
+
+	return formatWithCommas(intPart) + "." + fmt.Sprintf("%02d", decPart)
+}
+
+func formatWithCommas(n int) string {
+	if n < 0 {
+		return "-" + formatWithCommas(-n)
+	}
+
+	s := ""
+	for i, d := range strconv.Itoa(n) {
+		if i > 0 && (len(strconv.Itoa(n))-i)%3 == 0 {
+			s += ","
+		}
+		s += string(d)
+	}
+	return s
 }
 
 type CurrencyError string

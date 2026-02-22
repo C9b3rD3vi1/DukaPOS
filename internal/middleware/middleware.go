@@ -40,6 +40,14 @@ func JWT(authService *services.AuthService) fiber.Handler {
 		c.Locals("shop_id", shop.ID)
 		c.Locals("shop", shop)
 
+		// Also fetch and set account if exists (for admin checks)
+		if shop.AccountID > 0 {
+			account, _ := authService.GetAccountByID(shop.AccountID)
+			if account != nil {
+				c.Locals("account", account)
+			}
+		}
+
 		return c.Next()
 	}
 }

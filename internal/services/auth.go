@@ -15,6 +15,12 @@ var (
 	ErrInvalidCredentials = errors.New("invalid credentials")
 	ErrShopExists         = errors.New("shop already exists with this phone/email")
 	ErrTokenExpired       = errors.New("token has expired")
+	ErrAccountLocked      = errors.New("account is temporarily locked due to too many failed login attempts")
+)
+
+const (
+	MaxFailedLoginAttempts = 5
+	LockoutDuration        = 15 * time.Minute
 )
 
 // AuthService handles authentication
@@ -118,13 +124,49 @@ func (s *AuthService) Login(phoneOrEmail, password string) (*models.Shop, string
 
 	// Verify password
 	if err := bcrypt.CompareHashAndPassword([]byte(shop.PasswordHash), []byte(password)); err != nil {
+		// Check if this is an account login (has AccountID)
+		if shop.AccountID > 0 && s.accountRepo != nil {
+			account, _ := s.accountRepo.GetByID(shop.AccountID)
+			if account != nil {
+				// Check if account is locked
+				if account.LockedUntil != nil && time.Now().Before(*account.LockedUntil) {
+					return nil, "", nil, ErrAccountLocked
+				}
+
+				// Increment failed attempts
+				account.FailedLoginAttempts++
+				now := time.Now()
+				account.LastFailedLogin = &now
+
+				// Lock account if too many failed attempts
+				if account.FailedLoginAttempts >= MaxFailedLoginAttempts {
+					lockedUntil := time.Now().Add(LockoutDuration)
+					account.LockedUntil = &lockedUntil
+				}
+
+				s.accountRepo.Update(account)
+			}
+		}
 		return nil, "", nil, ErrInvalidCredentials
 	}
 
 	// Get account
 	var account *models.Account
-	if s.accountRepo != nil {
+	if s.accountRepo != nil && shop.AccountID > 0 {
 		account, _ = s.accountRepo.GetByID(shop.AccountID)
+		if account != nil {
+			// Check if account is locked
+			if account.LockedUntil != nil && time.Now().Before(*account.LockedUntil) {
+				return nil, "", nil, ErrAccountLocked
+			}
+
+			// Reset failed attempts on successful login
+			if account.FailedLoginAttempts > 0 || account.LockedUntil != nil {
+				account.FailedLoginAttempts = 0
+				account.LockedUntil = nil
+				s.accountRepo.Update(account)
+			}
+		}
 	}
 
 	// Generate JWT token

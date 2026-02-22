@@ -198,3 +198,60 @@ func (h *AuthHandler) ChangePassword(c *fiber.Ctx) error {
 		"message": "Password changed successfully",
 	})
 }
+
+// OTPRequest represents an OTP request
+type OTPRequest struct {
+	Phone string `json:"phone"`
+}
+
+// OTPVerifyRequest represents OTP verification
+type OTPVerifyRequest struct {
+	Phone string `json:"phone"`
+	Code  string `json:"code"`
+}
+
+// SendOTP sends OTP to phone number
+func (h *AuthHandler) SendOTP(c *fiber.Ctx) error {
+	var req OTPRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if req.Phone == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Phone number is required",
+		})
+	}
+
+	// Use the auth service to send OTP
+	// For now, return success - the actual implementation would use OTP service
+	return c.JSON(fiber.Map{
+		"message": "OTP sent successfully",
+		"note":    "Configure OTP service for production",
+	})
+}
+
+// VerifyOTP verifies OTP code
+func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
+	var req OTPVerifyRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Invalid request body",
+		})
+	}
+
+	if req.Phone == "" || req.Code == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": "Phone and code are required",
+		})
+	}
+
+	// Use the auth service to verify OTP
+	// For now, return success - the actual implementation would use OTP service
+	return c.JSON(fiber.Map{
+		"message": "OTP verified successfully",
+		"note":    "Configure OTP service for production",
+	})
+}

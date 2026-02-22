@@ -14,6 +14,7 @@ type ShopHandler struct {
 	shopRepo    *repository.ShopRepository
 	productRepo *repository.ProductRepository
 	saleRepo    *repository.SaleRepository
+	accountRepo *repository.AccountRepository
 }
 
 // NewShopHandler creates a new shop handler
@@ -29,6 +30,21 @@ func NewShopHandler(
 	}
 }
 
+// NewShopHandlerWithAccount creates a new shop handler with account repository
+func NewShopHandlerWithAccount(
+	shopRepo *repository.ShopRepository,
+	productRepo *repository.ProductRepository,
+	saleRepo *repository.SaleRepository,
+	accountRepo *repository.AccountRepository,
+) *ShopHandler {
+	return &ShopHandler{
+		shopRepo:    shopRepo,
+		productRepo: productRepo,
+		saleRepo:    saleRepo,
+		accountRepo: accountRepo,
+	}
+}
+
 // GetProfile returns the shop's profile
 func (h *ShopHandler) GetProfile(c *fiber.Ctx) error {
 	shopID := c.Locals("shop_id").(uint)
@@ -41,6 +57,55 @@ func (h *ShopHandler) GetProfile(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(shop)
+}
+
+// GetAccount returns the account with all shops
+func (h *ShopHandler) GetAccount(c *fiber.Ctx) error {
+	if h.accountRepo == nil {
+		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+			"error": "Account feature not available",
+		})
+	}
+
+	shopID := c.Locals("shop_id").(uint)
+	shop, err := h.shopRepo.GetByID(shopID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Shop not found",
+		})
+	}
+
+	if shop.AccountID == 0 {
+		return c.JSON(fiber.Map{
+			"id":         shop.ID,
+			"account_id": 0,
+			"shops":      []models.Shop{*shop},
+		})
+	}
+
+	account, err := h.accountRepo.GetByID(shop.AccountID)
+	if err != nil {
+		return c.JSON(fiber.Map{
+			"id":         shop.ID,
+			"account_id": shop.AccountID,
+			"shops":      []models.Shop{*shop},
+		})
+	}
+
+	shops, _ := h.accountRepo.GetShops(account.ID)
+	if shops == nil {
+		shops = []models.Shop{*shop}
+	}
+
+	return c.JSON(fiber.Map{
+		"id":         account.ID,
+		"email":      account.Email,
+		"name":       account.Name,
+		"phone":      account.Phone,
+		"plan":       account.Plan,
+		"account_id": account.ID,
+		"shops":      shops,
+	})
 }
 
 // UpdateProfile updates the shop's profile

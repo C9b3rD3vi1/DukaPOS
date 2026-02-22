@@ -1,10 +1,14 @@
 package ai
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
+	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/repository"
 )
 
@@ -20,6 +24,8 @@ type PredictionService struct {
 	summaryRepo         *repository.DailySummaryRepository
 	minDataDays         int
 	confidenceThreshold float64
+	openAIAPIKey        string
+	httpClient          *http.Client
 }
 
 func NewPredictionService(
@@ -33,7 +39,69 @@ func NewPredictionService(
 		summaryRepo:         summaryRepo,
 		minDataDays:         7,
 		confidenceThreshold: 0.6,
+		httpClient:          &http.Client{Timeout: 30 * time.Second},
 	}
+}
+
+func (s *PredictionService) SetOpenAIKey(apiKey string) {
+	s.openAIAPIKey = apiKey
+}
+
+func (s *PredictionService) IsOpenAIConfigured() bool {
+	return s.openAIAPIKey != ""
+}
+
+func (s *PredictionService) GetOpenAIInsights(ctx context.Context, shopID uint, prompt string) (string, error) {
+	if !s.IsOpenAIConfigured() {
+		return "", fmt.Errorf("OpenAI not configured")
+	}
+
+	sales, err := s.saleRepo.GetByShopID(shopID, 1000)
+	if err != nil {
+		return "", err
+	}
+
+	products, err := s.productRepo.GetByShopID(shopID)
+	if err != nil {
+		products = []models.Product{}
+	}
+
+	summary := fmt.Sprintf("Shop has %d products and %d recent sales. ", len(products), len(sales))
+
+	reqBody := map[string]interface{}{
+		"model": "gpt-3.5-turbo",
+		"messages": []map[string]string{
+			{"role": "system", "content": "You are a business analyst for a Kenyan shop. Provide concise, actionable insights."},
+			{"role": "user", "content": prompt + "\n\n" + summary},
+		},
+		"max_tokens": 200,
+	}
+
+	body, _ := json.Marshal(reqBody)
+	req, _ := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", bytes.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+s.openAIAPIKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := s.httpClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	var result map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	if choices, ok := result["choices"].([]interface{}); ok && len(choices) > 0 {
+		if msg, ok := choices[0].(map[string]interface{})["message"]; ok {
+			if content, ok := msg.(map[string]interface{})["content"]; ok {
+				return content.(string), nil
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no response from OpenAI")
 }
 
 type ProductPrediction struct {

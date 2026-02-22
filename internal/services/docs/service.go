@@ -27,7 +27,7 @@ func OpenAPI() map[string]interface{} {
 			{"url": "https://api.dukapos.io/v1", "description": "Production server"},
 			{"url": "https://sandbox.dukapos.io/v1", "description": "Sandbox server"},
 		},
-		"paths":     Paths(),
+		"paths":      Paths(),
 		"components": Components(),
 		"tags": []map[string]interface{}{
 			{"name": "Auth", "description": "Authentication endpoints"},
@@ -43,8 +43,349 @@ func OpenAPI() map[string]interface{} {
 
 // Paths returns API paths
 func Paths() map[string]interface{} {
-	// Stub - returns empty paths until fixed properly
-	return map[string]interface{}{}
+	return map[string]interface{}{
+		"/api/auth/register": map[string]interface{}{
+			"post": map[string]interface{}{
+				"tags":        []string{"Auth"},
+				"summary":     "Register new shop account",
+				"description": "Create a new account with shop",
+				"requestBody": map[string]interface{}{
+					"required": true,
+					"content": map[string]interface{}{
+						"application/json": map[string]interface{}{
+							"schema": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"email":    map[string]interface{}{"type": "string"},
+									"password": map[string]interface{}{"type": "string"},
+									"name":     map[string]interface{}{"type": "string"},
+									"phone":    map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+				"responses": map[string]interface{}{
+					"201": map[string]interface{}{"description": "Account created"},
+					"400": map[string]interface{}{"description": "Invalid request"},
+				},
+			},
+		},
+		"/api/auth/login": map[string]interface{}{
+			"post": map[string]interface{}{
+				"tags":        []string{"Auth"},
+				"summary":     "Login to account",
+				"description": "Authenticate and get JWT token",
+				"requestBody": map[string]interface{}{
+					"required": true,
+					"content": map[string]interface{}{
+						"application/json": map[string]interface{}{
+							"schema": map[string]interface{}{
+								"type": "object",
+								"properties": map[string]interface{}{
+									"email":    map[string]interface{}{"type": "string"},
+									"password": map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Login successful"},
+					"401": map[string]interface{}{"description": "Invalid credentials"},
+				},
+			},
+		},
+		"/api/v1/products": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Products"},
+				"summary":     "List all products",
+				"description": "Get all products for the authenticated shop",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "List of products"},
+				},
+			},
+			"post": map[string]interface{}{
+				"tags":        []string{"Products"},
+				"summary":     "Create product",
+				"description": "Add a new product to inventory",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"requestBody": map[string]interface{}{
+					"required": true,
+					"content": map[string]interface{}{
+						"application/json": map[string]interface{}{
+							"schema": map[string]interface{}{
+								"type":     "object",
+								"required": []string{"name", "selling_price"},
+								"properties": map[string]interface{}{
+									"name":                map[string]interface{}{"type": "string"},
+									"category":            map[string]interface{}{"type": "string"},
+									"selling_price":       map[string]interface{}{"type": "number"},
+									"cost_price":          map[string]interface{}{"type": "number"},
+									"current_stock":       map[string]interface{}{"type": "integer"},
+									"low_stock_threshold": map[string]interface{}{"type": "integer"},
+									"barcode":             map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+				"responses": map[string]interface{}{
+					"201": map[string]interface{}{"description": "Product created"},
+				},
+			},
+		},
+		"/api/v1/products/{id}": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Products"},
+				"summary":     "Get product",
+				"description": "Get a specific product by ID",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"parameters": []map[string]interface{}{
+					{"name": "id", "in": "path", "required": true, "schema": map[string]interface{}{"type": "integer"}},
+				},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Product details"},
+					"404": map[string]interface{}{"description": "Product not found"},
+				},
+			},
+			"put": map[string]interface{}{
+				"tags":        []string{"Products"},
+				"summary":     "Update product",
+				"description": "Update product details",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"parameters": []map[string]interface{}{
+					{"name": "id", "in": "path", "required": true, "schema": map[string]interface{}{"type": "integer"}},
+				},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Product updated"},
+				},
+			},
+			"delete": map[string]interface{}{
+				"tags":        []string{"Products"},
+				"summary":     "Delete product",
+				"description": "Remove a product from inventory",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"parameters": []map[string]interface{}{
+					{"name": "id", "in": "path", "required": true, "schema": map[string]interface{}{"type": "integer"}},
+				},
+				"responses": map[string]interface{}{
+					"204": map[string]interface{}{"description": "Product deleted"},
+				},
+			},
+		},
+		"/api/v1/sales": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Sales"},
+				"summary":     "List sales",
+				"description": "Get all sales for the authenticated shop",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "List of sales"},
+				},
+			},
+			"post": map[string]interface{}{
+				"tags":        []string{"Sales"},
+				"summary":     "Create sale",
+				"description": "Record a new sale transaction",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"requestBody": map[string]interface{}{
+					"required": true,
+					"content": map[string]interface{}{
+						"application/json": map[string]interface{}{
+							"schema": map[string]interface{}{
+								"type":     "object",
+								"required": []string{"product_id", "quantity"},
+								"properties": map[string]interface{}{
+									"product_id":     map[string]interface{}{"type": "integer"},
+									"quantity":       map[string]interface{}{"type": "integer"},
+									"payment_method": map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+				"responses": map[string]interface{}{
+					"201": map[string]interface{}{"description": "Sale recorded"},
+				},
+			},
+		},
+		"/api/v1/sales/{id}": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Sales"},
+				"summary":     "Get sale",
+				"description": "Get a specific sale by ID",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"parameters": []map[string]interface{}{
+					{"name": "id", "in": "path", "required": true, "schema": map[string]interface{}{"type": "integer"}},
+				},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Sale details"},
+				},
+			},
+		},
+		"/api/v1/shop/profile": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Shop"},
+				"summary":     "Get shop profile",
+				"description": "Get current shop information",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Shop profile"},
+				},
+			},
+			"put": map[string]interface{}{
+				"tags":        []string{"Shop"},
+				"summary":     "Update shop profile",
+				"description": "Update shop information",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Shop updated"},
+				},
+			},
+		},
+		"/api/v1/shop/dashboard": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Shop"},
+				"summary":     "Get dashboard data",
+				"description": "Get daily summary and statistics",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Dashboard data"},
+				},
+			},
+		},
+		"/api/v1/mpesa/stk-push": map[string]interface{}{
+			"post": map[string]interface{}{
+				"tags":        []string{"Payments"},
+				"summary":     "Initiate STK Push",
+				"description": "Send M-Pesa STK push payment request",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"requestBody": map[string]interface{}{
+					"required": true,
+					"content": map[string]interface{}{
+						"application/json": map[string]interface{}{
+							"schema": map[string]interface{}{
+								"type":     "object",
+								"required": []string{"phone", "amount"},
+								"properties": map[string]interface{}{
+									"phone":  map[string]interface{}{"type": "string"},
+									"amount": map[string]interface{}{"type": "number"},
+								},
+							},
+						},
+					},
+				},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "STK push initiated"},
+				},
+			},
+		},
+		"/api/v1/staff": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Staff"},
+				"summary":     "List staff",
+				"description": "Get all staff members (Pro feature)",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "List of staff"},
+				},
+			},
+			"post": map[string]interface{}{
+				"tags":        []string{"Staff"},
+				"summary":     "Add staff",
+				"description": "Create a new staff account (Pro feature)",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"201": map[string]interface{}{"description": "Staff created"},
+				},
+			},
+		},
+		"/api/v1/customers": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Customers"},
+				"summary":     "List customers",
+				"description": "Get all customers (Business feature)",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "List of customers"},
+				},
+			},
+		},
+		"/api/v1/loyalty/points/{customer_id}": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Loyalty"},
+				"summary":     "Get customer points",
+				"description": "Get loyalty points for a customer",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"parameters": []map[string]interface{}{
+					{"name": "customer_id", "in": "path", "required": true, "schema": map[string]interface{}{"type": "integer"}},
+				},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Points balance"},
+				},
+			},
+		},
+		"/api/v1/currency/convert": map[string]interface{}{
+			"post": map[string]interface{}{
+				"tags":        []string{"Currency"},
+				"summary":     "Convert currency",
+				"description": "Convert amount between currencies",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"requestBody": map[string]interface{}{
+					"required": true,
+					"content": map[string]interface{}{
+						"application/json": map[string]interface{}{
+							"schema": map[string]interface{}{
+								"type":     "object",
+								"required": []string{"amount", "from", "to"},
+								"properties": map[string]interface{}{
+									"amount": map[string]interface{}{"type": "number"},
+									"from":   map[string]interface{}{"type": "string"},
+									"to":     map[string]interface{}{"type": "string"},
+								},
+							},
+						},
+					},
+				},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Conversion result"},
+				},
+			},
+		},
+		"/api/v1/billing/plans": map[string]interface{}{
+			"get": map[string]interface{}{
+				"tags":        []string{"Billing"},
+				"summary":     "Get subscription plans",
+				"description": "List available subscription plans",
+				"security":    []map[string]string{{"BearerAuth": ""}},
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "List of plans"},
+				},
+			},
+		},
+		"/webhook/twilio": map[string]interface{}{
+			"post": map[string]interface{}{
+				"tags":        []string{"Webhooks"},
+				"summary":     "Twilio WhatsApp webhook",
+				"description": "Receive WhatsApp messages from Twilio",
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Message processed"},
+				},
+			},
+		},
+		"/webhook/mpesa/stk": map[string]interface{}{
+			"post": map[string]interface{}{
+				"tags":        []string{"Webhooks"},
+				"summary":     "M-Pesa STK callback",
+				"description": "Receive M-Pesa payment callbacks",
+				"responses": map[string]interface{}{
+					"200": map[string]interface{}{"description": "Callback processed"},
+				},
+			},
+		},
+	}
 }
 
 // Components returns OpenAPI components
@@ -53,10 +394,10 @@ func Components() map[string]interface{} {
 		"schemas": Schemas(),
 		"securitySchemes": map[string]interface{}{
 			"BearerAuth": map[string]interface{}{
-				"type":        "http",
-				"scheme":      "bearer",
+				"type":         "http",
+				"scheme":       "bearer",
 				"bearerFormat": "JWT",
-				"description": "Enter JWT token",
+				"description":  "Enter JWT token",
 			},
 			"ApiKeyAuth": map[string]interface{}{
 				"type": "apiKey",
@@ -73,12 +414,12 @@ func Schemas() map[string]interface{} {
 		"Product": map[string]interface{}{
 			"type": "object",
 			"properties": map[string]interface{}{
-				"id":              map[string]interface{}{"type": "integer"},
-				"name":            map[string]interface{}{"type": "string"},
-				"category":        map[string]interface{}{"type": "string"},
-				"selling_price":   map[string]interface{}{"type": "number"},
-				"cost_price":     map[string]interface{}{"type": "number"},
-				"current_stock":  map[string]interface{}{"type": "integer"},
+				"id":            map[string]interface{}{"type": "integer"},
+				"name":          map[string]interface{}{"type": "string"},
+				"category":      map[string]interface{}{"type": "string"},
+				"selling_price": map[string]interface{}{"type": "number"},
+				"cost_price":    map[string]interface{}{"type": "number"},
+				"current_stock": map[string]interface{}{"type": "integer"},
 			},
 		},
 		"Sale": map[string]interface{}{
@@ -114,8 +455,8 @@ func Post(op map[string]interface{}) *OperationBuilder {
 	return &OperationBuilder{op: op}
 }
 
-func Get(op map[string]interface{}) *OperationBuilder { return &OperationBuilder{op: op} }
-func Put(op map[string]interface{}) *OperationBuilder { return &OperationBuilder{op: op} }
+func Get(op map[string]interface{}) *OperationBuilder    { return &OperationBuilder{op: op} }
+func Put(op map[string]interface{}) *OperationBuilder    { return &OperationBuilder{op: op} }
 func Delete(op map[string]interface{}) *OperationBuilder { return &OperationBuilder{op: op} }
 
 func (b *OperationBuilder) Tag(name string) *OperationBuilder {
@@ -197,7 +538,7 @@ func ListProducts() map[string]interface{} {
 	return map[string]interface{}{
 		"summary":     "List all products",
 		"description": "Get paginated list of products",
-		"tags":       []string{"Products"},
+		"tags":        []string{"Products"},
 		"parameters": []map[string]interface{}{
 			{"name": "page", "in": "query", "schema": map[string]interface{}{"type": "integer"}},
 			{"name": "limit", "in": "query", "schema": map[string]interface{}{"type": "integer"}},
@@ -213,7 +554,7 @@ func CreateProduct() map[string]interface{} {
 	return map[string]interface{}{
 		"summary":     "Create product",
 		"description": "Add a new product to inventory",
-		"tags":       []string{"Products"},
+		"tags":        []string{"Products"},
 		"requestBody": map[string]interface{}{
 			"required": true,
 			"content": map[string]interface{}{
@@ -259,7 +600,7 @@ func ListSales() map[string]interface{} {
 	return map[string]interface{}{
 		"summary":     "List sales",
 		"description": "Get sales history",
-		"tags":       []string{"Sales"},
+		"tags":        []string{"Sales"},
 		"parameters": []map[string]interface{}{
 			{"name": "date", "in": "query", "schema": map[string]interface{}{"type": "string"}},
 			{"name": "page", "in": "query", "schema": map[string]interface{}{"type": "integer"}},
@@ -317,7 +658,7 @@ func ShopProfile() map[string]interface{} {
 	}
 }
 
-func ShopUpdate() map[string]interface{} { return ShopProfile() }
+func ShopUpdate() map[string]interface{}    { return ShopProfile() }
 func ShopDashboard() map[string]interface{} { return ShopProfile() }
 
 func STKPush() map[string]interface{} {
@@ -325,7 +666,7 @@ func STKPush() map[string]interface{} {
 		"summary":     "Initiate M-Pesa STK Push",
 		"description": "Send payment request to customer phone",
 		"tags":        []string{"Payments"},
-		"security":    []interface{}{map[string]interface{}{"BearerAuth": []interface{}{}}},
+		"security":    []map[string]string{{"BearerAuth": ""}},
 		"requestBody": map[string]interface{}{
 			"required": true,
 			"content": map[string]interface{}{
@@ -371,7 +712,7 @@ func DailyReport() map[string]interface{} {
 	}
 }
 
-func WeeklyReport() map[string]interface{} { return DailyReport() }
+func WeeklyReport() map[string]interface{}  { return DailyReport() }
 func MonthlyReport() map[string]interface{} { return DailyReport() }
 
 // GenerateDocsJSON returns JSON documentation

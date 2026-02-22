@@ -7,6 +7,7 @@ import (
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/repository"
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // Handler handles staff HTTP requests
@@ -113,13 +114,20 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		})
 	}
 
-	// Create staff (pin should be hashed in production)
+	// Create staff with hashed PIN
+	hashedPin, err := bcrypt.GenerateFromPassword([]byte(req.Pin), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "failed to hash PIN",
+		})
+	}
+
 	staff := &models.Staff{
 		ShopID:   req.ShopID,
 		Name:     req.Name,
 		Phone:    req.Phone,
 		Role:     req.Role,
-		Pin:      req.Pin, // TODO: Hash this
+		Pin:      string(hashedPin),
 		IsActive: true,
 	}
 
@@ -130,7 +138,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	return c.Status(http.StatusCreated).JSON(fiber.Map{
-		"data": staff,
+		"data":    staff,
 		"message": "staff created successfully",
 	})
 }
@@ -194,7 +202,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"data": staff,
+		"data":    staff,
 		"message": "staff updated successfully",
 	})
 }
@@ -262,9 +270,22 @@ func (h *Handler) UpdatePin(c *fiber.Ctx) error {
 		})
 	}
 
-	// TODO: Verify current pin hash in production
+	// Verify current PIN
+	if err := bcrypt.CompareHashAndPassword([]byte(staff.Pin), []byte(req.CurrentPin)); err != nil {
+		return c.Status(http.StatusUnauthorized).JSON(fiber.Map{
+			"error": "current PIN is incorrect",
+		})
+	}
 
-	staff.Pin = req.NewPin // TODO: Hash this
+	// Hash new PIN
+	hashedPin, err := bcrypt.GenerateFromPassword([]byte(req.NewPin), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
+			"error": "failed to hash new PIN",
+		})
+	}
+
+	staff.Pin = string(hashedPin)
 	if err := h.staffRepo.Update(staff); err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

@@ -1,0 +1,78 @@
+Warning: TWILIO_ACCOUNT_SID not set
+Warning: TWILIO_AUTH_TOKEN not set
+Warning: Using default JWT_SECRET - change in production!
+2026/02/18 21:59:59 📦 Connecting to SQLite: ./dukapos.db
+2026/02/18 21:59:59 ✅ Database connected successfully
+2026/02/18 21:59:59 🔄 Running database migrations...
+2026/02/18 22:00:03 ✅ Database migrations completed
+2026/02/18 22:00:03 🌱 Checking for seed data...
+2026/02/18 22:00:03 ⏭️  Skipping seed - data already exists
+2026/02/18 22:00:03 ⚠️ Africa Talking SMS not configured
+2026/02/18 22:00:03 ⚠️ SendGrid email not configured
+2026/02/18 22:00:03 ✅ API service initialized
+2026/02/18 22:00:03 📅 Scheduled task: daily_reports every 24h0m0s
+2026/02/18 22:00:03 📅 Scheduled task: low_stock_check every 6h0m0s
+2026/02/18 22:00:03 📅 Scheduled task: weekly_reports every 168h0m0s
+2026/02/18 22:00:03 📅 Scheduler started with 3 tasks
+2026/02/18 22:00:03 ✅ Scheduler initialized
+2026/02/18 22:00:03 ✅ AI Predictions service initialized
+2026/02/18 22:00:03 ✅ Web dashboard enabled
+2026/02/18 22:00:03 ✅ API Keys routes enabled
+2026/02/18 22:00:03 ✅ Webhook routes enabled (Plan: Business)
+2026/02/18 22:00:03 ✅ AI Predictions routes enabled (Plan: Business)
+2026/02/18 22:00:03 ✅ Customer routes enabled
+2026/02/18 22:00:03 ✅ Supplier/Order routes enabled
+2026/02/18 22:00:03 🚀 Starting DukaPOS server on :8080
+2026/02/18 22:00:03 📱 WhatsApp webhook: http://your-domain/webhook/twilio
+2026/02/18 22:00:03 🔗 API: http://localhost:8080/api
+2026/02/18 22:00:03 📋 Features:
+2026/02/18 22:00:03    • Products: ✅
+2026/02/18 22:00:03    • Sales: ✅
+2026/02/18 22:00:03    • API Keys: ✅
+2026/02/18 22:00:03    • Webhooks: ✅
+
+ ┌───────────────────────────────────────────────────┐ 
+ │                      DukaPOS                      │ 
+ │                   Fiber v2.52.0                   │ 
+ │               http://127.0.0.1:8080               │ 
+ │       (bound on host 0.0.0.0 and port 8080)       │ 
+ │                                                   │ 
+ │ Handlers ........... 129  Processes ........... 1 │ 
+ │ Prefork ....... Disabled  PID ............ 249586 │ 
+ └───────────────────────────────────────────────────┘ 
+
+[2026-02-18 22:00:22] 200 - GET /   19.734105ms
+[2026-02-18 22:04:47] 200 - GET /     472.859µs
+[2026-02-18 22:04:53] 200 - GET /login     248.572µs
+[2026-02-18 22:05:15] 200 - GET /register     333.118µs
+[2026-02-18 22:05:15] 200 - GET /dashboard     587.817µs
+[2026-02-18 22:05:15] 200 - GET /products     705.508µs
+[2026-02-18 22:05:15] 200 - GET /sales     251.766µs
+[2026-02-18 22:07:19] 200 - GET /dashboard/     650.747µs
+[2026-02-18 22:07:19] 200 - GET /api/v1/shop/dashboard-json/1   34.651944ms
+[2026-02-18 22:07:46] 200 - GET /login     857.029µs
+[2026-02-18 22:08:24] 401 - POST /api/auth/login     1.55766ms
+[2026-02-18 22:08:35] 200 - POST /api/auth/login  271.610241ms
+[2026-02-18 22:08:35] 200 - GET /dashboard      559.49µs
+[2026-02-18 22:08:35] 200 - GET /api/v1/shop/dashboard-json/1   19.001962ms
+[2026-02-18 22:08:41] 304 - GET /dashboard    2.008207ms
+[2026-02-18 22:08:41] 200 - GET /api/v1/shop/dashboard-json/1   49.245448ms
+[2026-02-18 22:08:57] 304 - GET /dashboard    1.495938ms
+[2026-02-18 22:08:58] 200 - GET /api/v1/shop/dashboard-json/1    21.11631ms
+[2026-02-18 22:09:29] 200 - GET /register     260.217µs
+[2026-02-18 22:09:51] 304 - GET /login     373.414µs
+[2026-02-18 22:10:16] 401 - POST /api/auth/login    1.265537ms
+[2026-02-18 22:10:22] 200 - POST /api/auth/login  280.668047ms
+[2026-02-18 22:10:22] 304 - GET /dashboard     712.654µs
+[2026-02-18 22:10:22] 200 - GET /api/v1/shop/dashboard-json/1   21.102403ms
+[2026-02-18 22:11:23] 200 - GET /api/v1/shop/dashboard-json/1    9.647398ms
+[2026-02-18 22:12:23] 200 - GET /api/v1/shop/dashboard-json/1    21.94922ms
+[2026-02-18 22:13:24] 200 - GET /api/v1/shop/dashboard-json/1   45.288264ms
+[2026-02-18 22:14:30] 200 - GET /api/v1/shop/dashboard-json/1   18.003167ms
+[2026-02-18 22:14:57] 200 - GET /dashboard     640.194µs
+[2026-02-18 22:15:04] 200 - GET /products     272.666µs
+[2026-02-18 22:15:04] 200 - GET /sales     315.665µs
+[2026-02-18 22:15:30] 200 - GET /api/v1/shop/dashboard-json/1    7.487363ms
+[2026-02-18 22:16:30] 200 - GET /api/v1/shop/dashboard-json/1    7.191706ms
+[2026-02-18 22:17:31] 200 - GET /api/v1/shop/dashboard-json/1   11.300219ms
+2026/02/18 22:18:26 Shutting down gracefully...

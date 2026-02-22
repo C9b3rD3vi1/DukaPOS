@@ -5,35 +5,38 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
+	"github.com/C9b3rD3vi1/DukaPOS/internal/repository"
 )
 
 // Session represents a USSD session
 type Session struct {
-	ID        string    `json:"id"`
-	Phone     string    `json:"phone"`
-	ShopID    uint      `json:"shop_id"`
-	State     string    `json:"state"`      // current menu state
-	Previous  string    `json:"previous"`   // previous state
-	Data      map[string]string `json:"data"` // session data
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        string            `json:"id"`
+	Phone     string            `json:"phone"`
+	ShopID    uint              `json:"shop_id"`
+	State     string            `json:"state"`    // current menu state
+	Previous  string            `json:"previous"` // previous state
+	Data      map[string]string `json:"data"`     // session data
+	CreatedAt time.Time         `json:"created_at"`
+	UpdatedAt time.Time         `json:"updated_at"`
 }
 
 // Menu represents a USSD menu
 type Menu struct {
-	ID          string   `json:"id"`
-	Title       string   `json:"title"`
-	Options     []Option `json:"options"`
-	ParentID    string   `json:"parent_id,omitempty"`
-	IsMainMenu  bool     `json:"is_main_menu"`
+	ID         string   `json:"id"`
+	Title      string   `json:"title"`
+	Options    []Option `json:"options"`
+	ParentID   string   `json:"parent_id,omitempty"`
+	IsMainMenu bool     `json:"is_main_menu"`
 }
 
 // Option represents a menu option
 type Option struct {
-	Number     string `json:"number"`
-	Text       string `json:"text"`
-	Action     string `json:"action"`    // next state or command
-	RequiresAuth bool `json:"requires_auth"`
+	Number       string `json:"number"`
+	Text         string `json:"text"`
+	Action       string `json:"action"` // next state or command
+	RequiresAuth bool   `json:"requires_auth"`
 }
 
 // Response represents USSD response
@@ -46,8 +49,12 @@ type Response struct {
 
 // Service handles USSD menu processing
 type Service struct {
-	sessions map[string]*Session
-	menuTree map[string]*Menu
+	sessions    map[string]*Session
+	menuTree    map[string]*Menu
+	shopRepo    *repository.ShopRepository
+	productRepo *repository.ProductRepository
+	saleRepo    *repository.SaleRepository
+	summaryRepo *repository.DailySummaryRepository
 }
 
 // New creates a new USSD service
@@ -58,6 +65,19 @@ func New() *Service {
 	}
 	s.buildMenuTree()
 	return s
+}
+
+// SetRepositories sets the database repositories
+func (s *Service) SetRepositories(
+	shopRepo *repository.ShopRepository,
+	productRepo *repository.ProductRepository,
+	saleRepo *repository.SaleRepository,
+	summaryRepo *repository.DailySummaryRepository,
+) {
+	s.shopRepo = shopRepo
+	s.productRepo = productRepo
+	s.saleRepo = saleRepo
+	s.summaryRepo = summaryRepo
 }
 
 // buildMenuTree constructs the USSD menu structure
@@ -253,78 +273,199 @@ func (s *Service) showMenu(menuID string) *Response {
 	}
 }
 
-// Handler functions (simplified - would integrate with real services)
+// Handler functions (integrated with database)
 
 func (s *Service) handleStockAll(session *Session) *Response {
-	// In production, this would fetch from database
+	if s.productRepo == nil {
+		return &Response{
+			SessionID: session.ID,
+			Message:   "⚠️ Stock service not available.\n\n# = Back to Stock Menu",
+			FreeFlow:  "FC",
+			End:       false,
+		}
+	}
+
+	products, err := s.productRepo.GetByShopID(session.ShopID)
+	if err != nil || len(products) == 0 {
+		return &Response{
+			SessionID: session.ID,
+			Message:   "📦 No products found.\n\n# = Back to Stock Menu",
+			FreeFlow:  "FC",
+			End:       false,
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("📦 CURRENT STOCK:\n\n")
+
+	var totalValue float64
+	maxItems := 10
+	for i, p := range products {
+		if i >= maxItems {
+			sb.WriteString(fmt.Sprintf("\n... and %d more items", len(products)-maxItems))
+			break
+		}
+		sb.WriteString(fmt.Sprintf("%d. %s - %d %s @ KSh %.0f\n", i+1, p.Name, p.CurrentStock, p.Unit, p.SellingPrice))
+		totalValue += float64(p.CurrentStock) * p.SellingPrice
+	}
+
+	sb.WriteString(fmt.Sprintf("\nTotal Value: KSh %.0f\n\n# = Back to Stock Menu", totalValue))
+
 	return &Response{
 		SessionID: session.ID,
-		Message: `📦 CURRENT STOCK:
-
-1. Milk - 50 units @ KSh 60
-2. Bread - 30 units @ KSh 50
-3. Eggs - 20 units @ KSh 250
-4. Soda - 100 units @ KSh 50
-5. Water - 200 units @ KSh 25
-
-Total Value: KSh 18,000
-
-# = Back to Stock Menu`,
-		FreeFlow: "FC",
-		End:      false,
+		Message:   sb.String(),
+		FreeFlow:  "FC",
+		End:       false,
 	}
 }
 
 func (s *Service) handleReportToday(session *Session) *Response {
+	if s.saleRepo == nil || s.summaryRepo == nil {
+		return &Response{
+			SessionID: session.ID,
+			Message:   "⚠️ Report service not available.\n\n# = Back to Reports",
+			FreeFlow:  "FC",
+			End:       false,
+		}
+	}
+
+	today := time.Now().Truncate(24 * time.Hour)
+	tomorrow := today.Add(24 * time.Hour)
+
+	sales, err := s.saleRepo.GetByDateRange(session.ShopID, today, tomorrow)
+	if err != nil {
+		sales = []models.Sale{}
+	}
+
+	var totalSales, totalProfit float64
+	productCounts := make(map[string]int)
+
+	for _, sale := range sales {
+		totalSales += sale.TotalAmount
+		totalProfit += sale.Profit
+		if sale.Product.Name != "" {
+			productCounts[sale.Product.Name] += sale.Quantity
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("📊 TODAY'S REPORT:\n\n"))
+	sb.WriteString(fmt.Sprintf("💰 Total Sales: KSh %.0f\n", totalSales))
+	sb.WriteString(fmt.Sprintf("📝 Transactions: %d\n", len(sales)))
+	sb.WriteString(fmt.Sprintf("💵 Total Profit: KSh %.0f\n\n", totalProfit))
+
+	if len(productCounts) > 0 {
+		sb.WriteString("Top Selling:\n")
+		i := 0
+		for name, qty := range productCounts {
+			if i >= 3 {
+				break
+			}
+			sb.WriteString(fmt.Sprintf("%d. %s - %d units\n", i+1, name, qty))
+			i++
+		}
+	}
+
+	sb.WriteString("\n# = Back to Reports")
+
 	return &Response{
 		SessionID: session.ID,
-		Message: `📊 TODAY'S REPORT:
-
-💰 Total Sales: KSh 5,200
-📝 Transactions: 15
-💵 Total Profit: KSh 1,800
-
-Top Selling:
-1. Milk - 8 units
-2. Soda - 6 units
-3. Bread - 5 units
-
-# = Back to Reports`,
-		FreeFlow: "FC",
-		End:      false,
+		Message:   sb.String(),
+		FreeFlow:  "FC",
+		End:       false,
 	}
 }
 
 func (s *Service) handleProfit(session *Session) *Response {
+	if s.saleRepo == nil {
+		return &Response{
+			SessionID: session.ID,
+			Message:   "⚠️ Profit service not available.\n\n# = Back to Main",
+			FreeFlow:  "FC",
+			End:       false,
+		}
+	}
+
+	today := time.Now().Truncate(24 * time.Hour)
+	weekAgo := today.AddDate(0, 0, -7)
+	monthAgo := today.AddDate(0, -1, 0)
+
+	todaySales, _ := s.saleRepo.GetByDateRange(session.ShopID, today, today.Add(24*time.Hour))
+	weekSales, _ := s.saleRepo.GetByDateRange(session.ShopID, weekAgo, today)
+	monthSales, _ := s.saleRepo.GetByDateRange(session.ShopID, monthAgo, today)
+
+	var todayProfit, weekProfit, monthProfit float64
+
+	for _, sale := range todaySales {
+		todayProfit += sale.Profit
+	}
+	for _, sale := range weekSales {
+		weekProfit += sale.Profit
+	}
+	for _, sale := range monthSales {
+		monthProfit += sale.Profit
+	}
+
+	margin := 0.0
+	if todayProfit > 0 {
+		margin = (todayProfit / todaySales[0].TotalAmount) * 100
+	}
+
 	return &Response{
 		SessionID: session.ID,
-		Message: `💵 PROFIT SUMMARY:
+		Message: fmt.Sprintf(`💵 PROFIT SUMMARY:
 
-Today: KSh 1,800
-This Week: KSh 12,500
-This Month: KSh 45,000
+Today: KSh %.0f
+This Week: KSh %.0f
+This Month: KSh %.0f
 
-📈 Profit Margin: 35%
+📈 Profit Margin: %.0f%%
 
-# = Back to Main`,
+# = Back to Main`, todayProfit, weekProfit, monthProfit, margin),
 		FreeFlow: "FC",
 		End:      false,
 	}
 }
 
 func (s *Service) handleLowStock(session *Session) *Response {
+	if s.productRepo == nil {
+		return &Response{
+			SessionID: session.ID,
+			Message:   "⚠️ Stock service not available.\n\n# = Back to Main",
+			FreeFlow:  "FC",
+			End:       false,
+		}
+	}
+
+	products, err := s.productRepo.GetLowStock(session.ShopID)
+	if err != nil || len(products) == 0 {
+		return &Response{
+			SessionID: session.ID,
+			Message:   "✅ All products are well stocked!\n\n# = Back to Main",
+			FreeFlow:  "FC",
+			End:       false,
+		}
+	}
+
+	var sb strings.Builder
+	sb.WriteString("⚠️ LOW STOCK ALERT:\n\n")
+
+	maxItems := 5
+	for i, p := range products {
+		if i >= maxItems {
+			sb.WriteString(fmt.Sprintf("\n... and %d more items", len(products)-maxItems))
+			break
+		}
+		sb.WriteString(fmt.Sprintf("%d. %s - %d units (Min: %d)\n", i+1, p.Name, p.CurrentStock, p.LowStockThreshold))
+	}
+
+	sb.WriteString("\n💡 Order soon to avoid stockouts!\n\n# = Back to Main")
+
 	return &Response{
 		SessionID: session.ID,
-		Message: `⚠️ LOW STOCK ALERT:
-
-1. Eggs - 5 units (Min: 10)
-2. Sugar - 8 units (Min: 10)
-
-💡 Order soon to avoid stockouts!
-
-# = Back to Main`,
-		FreeFlow: "FC",
-		End:      false,
+		Message:   sb.String(),
+		FreeFlow:  "FC",
+		End:       false,
 	}
 }
 
@@ -410,13 +551,13 @@ func (s *Service) GetMainMenu() *Menu {
 
 // USSDSessionState constants
 const (
-	StateMain        = "main"
-	StateStock       = "stock"
-	StateSale        = "sale"
-	StateAddProduct  = "add_product"
-	StateReport      = "report"
-	StateShopInfo    = "shop_info"
-	StateExit        = "exit"
+	StateMain       = "main"
+	StateStock      = "stock"
+	StateSale       = "sale"
+	StateAddProduct = "add_product"
+	StateReport     = "report"
+	StateShopInfo   = "shop_info"
+	StateExit       = "exit"
 )
 
 // InputHandler handles specific input based on state
@@ -444,8 +585,8 @@ func (s *Service) handleSaleQuick(session *Session, input string) *Response {
 		return &Response{
 			SessionID: session.ID,
 			Message:   "❌ Invalid format.\n\nUse: product|qty\nExample: milk|2\n\n# = Cancel",
-			FreeFlow: "FC",
-			End:      false,
+			FreeFlow:  "FC",
+			End:       false,
 		}
 	}
 

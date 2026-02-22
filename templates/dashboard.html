@@ -76,6 +76,9 @@
           <span class="text-lg font-bold text-gray-900">DukaPOS</span>
         </a>
         <span class="ml-4 px-3 py-1.5 bg-primary-50 text-primary-dark rounded-lg text-sm font-medium hidden lg:block" id="shopName">My Shop</span>
+        <select id="shopSelector" class="ml-2 px-3 py-1.5 bg-gray-50 border border-gray-200 rounded-lg text-sm font-medium hidden lg:block" onchange="switchShop(this.value)">
+          <option value="">Loading...</option>
+        </select>
       </div>
       <div class="flex items-center gap-2">
         <button onclick="openModal('productModal')" class="hidden md:flex items-center gap-2 px-4 py-2.5 bg-gradient-to-br from-primary to-primary-dark text-white rounded-xl hover:shadow-lg hover:shadow-primary-500/25 hover:-translate-y-0.5 transition-all text-sm font-medium">
@@ -130,7 +133,7 @@
       </a>
       <a href="/ai" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-all">
         <i data-lucide="brain" class="w-5 h-5"></i>
-        AI Insights
+        Analytics
       </a>
       <a href="/apikeys" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-all">
         <i data-lucide="key" class="w-5 h-5"></i>
@@ -151,6 +154,10 @@
       <a href="/email" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-all">
         <i data-lucide="mail" class="w-5 h-5"></i>
         Email
+      </a>
+      <a href="/export" class="flex items-center gap-3 px-4 py-3 text-gray-600 hover:bg-gray-100 hover:text-gray-900 rounded-xl transition-all">
+        <i data-lucide="download" class="w-5 h-5"></i>
+        Export
       </a>
       <div class="border-t border-gray-200/50 my-3"></div>
       <a href="/logout" class="flex items-center gap-3 px-4 py-3 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-xl transition-all">
@@ -230,15 +237,6 @@
           </div>
         </div>
       </div>
-        <div id="recentSales">
-          <div class="p-8 flex justify-center">
-            <div class="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
-          </div>
-        </div>
-      </div>
-        <div id="recentSales">
-          <div class="p-8 flex justify-center">
-            <div class="w-8 h-8 border-4 border-gray-200 border-t-primary rounded-full animate-spin"></div>
           </div>
         </div>
       </div>
@@ -391,9 +389,93 @@
     const token = localStorage.getItem('dukapos_token');
     if (!token) window.location.href = '/login';
     
-    const shop = JSON.parse(localStorage.getItem('dukapos_shop') || '{}');
-    if (shop.name) document.getElementById('shopName').textContent = shop.name;
-    const shopId = shop.id || 1;
+    let shopId = null;
+    let currentShop = JSON.parse(localStorage.getItem('dukapos_shop') || '{}');
+    
+    async function initShop() {
+      if (currentShop && currentShop.id) {
+        shopId = currentShop.id;
+        if (currentShop.name) document.getElementById('shopName').textContent = currentShop.name;
+        return;
+      }
+      
+      try {
+        const profileRes = await fetch('/api/v1/shop/profile', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (profileRes.ok) {
+          const profile = await profileRes.json();
+          if (profile.id) {
+            shopId = profile.id;
+            currentShop = profile;
+            localStorage.setItem('dukapos_shop', JSON.stringify(profile));
+            if (profile.name) document.getElementById('shopName').textContent = profile.name;
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch shop profile:', e);
+      }
+      
+      if (!shopId) {
+        showToast('Please log in again', 'error');
+        setTimeout(() => window.location.href = '/login', 1000);
+      }
+    }
+    
+    // Check URL for shop ID
+    const urlPath = window.location.pathname;
+    const match = urlPath.match(/\/dashboard\/(\d+)/);
+    const urlShopId = match ? parseInt(match[1]) : null;
+    
+    if (urlShopId && urlShopId !== currentShop.id) {
+      currentShop.id = urlShopId;
+      localStorage.setItem('dukapos_shop', JSON.stringify(currentShop));
+    }
+    
+    initShop();
+    
+    async function loadShops() {
+      try {
+        const res = await fetch('/api/v1/shop/account', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const account = await res.json();
+        
+        const selector = document.getElementById('shopSelector');
+        if (!selector) return;
+        
+        let options = '';
+        
+        if (account.shops && account.shops.length > 0) {
+          account.shops.forEach(s => {
+            options += `<option value="${s.id}" ${s.id === shopId ? 'selected' : ''}>${s.name}</option>`;
+          });
+        }
+        
+        if (options) {
+          selector.innerHTML = options;
+          selector.classList.remove('hidden');
+        }
+      } catch (e) {
+        console.error('Failed to load shops:', e);
+      }
+    }
+    
+    function switchShop(newShopId) {
+      if (!newShopId || newShopId == shopId) return;
+      localStorage.setItem('switching_shop', newShopId);
+      window.location.href = `/dashboard/${newShopId}`;
+    }
+    
+    const switchingShop = localStorage.getItem('switching_shop');
+    if (switchingShop && switchingShop !== String(shopId)) {
+      shopId = parseInt(switchingShop);
+      currentShop.id = shopId;
+      localStorage.setItem('dukapos_shop', JSON.stringify(currentShop));
+      localStorage.removeItem('switching_shop');
+      loadDashboard();
+    }
 
     function toggleSidebar() {
       const sidebar = document.getElementById('sidebar');

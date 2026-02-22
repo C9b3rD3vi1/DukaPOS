@@ -68,6 +68,9 @@ type Config struct {
 	AllowedOrigins string
 	CORSEnabled    bool
 
+	// Encryption
+	EncryptionKey string
+
 	// External Services
 	AfricaTalkingAPIKey    string
 	AfricaTalkingUsername  string
@@ -147,6 +150,9 @@ func Load() (*Config, error) {
 		AllowedOrigins: getEnv("ALLOWED_ORIGINS", "*"),
 		CORSEnabled:    getEnvAsBool("CORS_ENABLED", true),
 
+		// Encryption (AES-256-GCM for sensitive data)
+		EncryptionKey: getEnv("ENCRYPTION_KEY", ""),
+
 		// External Services
 		AfricaTalkingAPIKey:    getEnv("AFRICA_TALKING_API_KEY", ""),
 		AfricaTalkingUsername:  getEnv("AFRICA_TALKING_USERNAME", "sandbox"),
@@ -155,12 +161,12 @@ func Load() (*Config, error) {
 		SendGridFromEmail:      getEnv("SENDGRID_FROM_EMAIL", "noreply@dukapos.com"),
 		SendGridFromName:       getEnv("SENDGRID_FROM_NAME", "DukaPOS"),
 
-		// Feature Flags
-		FeatureMpesaEnabled:         getEnvAsBool("FEATURE_MPESA_ENABLED", false),
+		// Feature Flags (enabled by default per FEATURES.md documentation)
+		FeatureMpesaEnabled:         getEnvAsBool("FEATURE_MPESA_ENABLED", true),
 		FeatureAnalyticsEnabled:     getEnvAsBool("FEATURE_ANALYTICS_ENABLED", true),
 		FeatureWebDashboardEnabled:  getEnvAsBool("FEATURE_WEB_DASHBOARD_ENABLED", true),
-		FeatureMultipleShopsEnabled: getEnvAsBool("FEATURE_MULTIPLE_SHOPS_ENABLED", false),
-		FeatureStaffAccountsEnabled: getEnvAsBool("FEATURE_STAFF_ACCOUNTS_ENABLED", false),
+		FeatureMultipleShopsEnabled: getEnvAsBool("FEATURE_MULTIPLE_SHOPS_ENABLED", true),
+		FeatureStaffAccountsEnabled: getEnvAsBool("FEATURE_STAFF_ACCOUNTS_ENABLED", true),
 	}
 
 	// Validate required fields
@@ -172,6 +178,11 @@ func Load() (*Config, error) {
 	}
 	if cfg.JWTSecret == "change-me-in-production" {
 		fmt.Println("Warning: Using default JWT_SECRET - change in production!")
+	}
+	if cfg.JWTSecret == "change-me-in-production" || len(cfg.JWTSecret) < 32 {
+		fmt.Println("ERROR: JWT_SECRET must be at least 32 characters in production!")
+		fmt.Println("Please set a secure JWT_SECRET environment variable.")
+		// In production, we could exit here, but for development convenience we'll warn
 	}
 
 	return cfg, nil
