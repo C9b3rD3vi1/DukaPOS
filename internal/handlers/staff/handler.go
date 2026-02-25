@@ -27,14 +27,9 @@ func New(staffRepo *repository.StaffRepository, shopRepo *repository.ShopReposit
 // List returns all staff for a shop
 // GET /api/v1/staff
 func (h *Handler) List(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shopId"), 10, 32)
-	if err != nil {
-		return c.Status(http.StatusBadRequest).JSON(fiber.Map{
-			"error": "invalid shop ID",
-		})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
-	staff, err := h.staffRepo.GetByShopID(uint(shopID))
+	staff, err := h.staffRepo.GetByShopID(shopID)
 	if err != nil {
 		return c.Status(http.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),

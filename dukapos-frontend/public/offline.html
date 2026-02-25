@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline - DukaPOS</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0D9488 0%, #0F766E 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background: white;
+      border-radius: 24px;
+      padding: 48px 32px;
+      text-align: center;
+      max-width: 420px;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+      width: 100%;
+    }
+    .icon {
+      width: 80px;
+      height: 80px;
+      background: #F0FDFA;
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+    }
+    .icon svg {
+      width: 40px;
+      height: 40px;
+      color: #0D9488;
+    }
+    .icon.offline svg {
+      color: #EF4444;
+    }
+    .icon.syncing svg {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #111827;
+      margin-bottom: 8px;
+    }
+    p {
+      font-size: 16px;
+      color: #6B7280;
+      line-height: 1.5;
+      margin-bottom: 16px;
+    }
+    .pending-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #FEF3C7;
+      color: #92400E;
+      padding: 8px 16px;
+      border-radius: 9999px;
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 24px;
+    }
+    .pending-badge svg {
+      width: 16px;
+      height: 16px;
+    }
+    .retry-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      background: #0D9488;
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+      width: 100%;
+      max-width: 200px;
+    }
+    .retry-btn:hover {
+      background: #0F766E;
+    }
+    .retry-btn:active {
+      transform: scale(0.98);
+    }
+    .retry-btn:disabled {
+      background: #9CA3AF;
+      cursor: not-allowed;
+    }
+    .retry-btn .spinner {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    .tips {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #E5E7EB;
+      text-align: left;
+    }
+    .tips h3 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 12px;
+    }
+    .tips ul {
+      list-style: none;
+      font-size: 14px;
+      color: #6B7280;
+    }
+    .tips li {
+      padding: 6px 0;
+      padding-left: 24px;
+      position: relative;
+    }
+    .tips li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: #0D9488;
+      font-weight: 600;
+    }
+    @media (prefers-color-scheme: dark) {
+      .container {
+        background: #1F2937;
+      }
+      h1 {
+        color: #F9FAFB;
+      }
+      p {
+        color: #9CA3AF;
+      }
+      .tips h3 {
+        color: #E5E7EB;
+      }
+      .tips li {
+        color: #9CA3AF;
+      }
+      .tips {
+        border-top-color: #374151;
+      }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .icon.syncing svg,
+      .retry-btn .spinner {
+        animation: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="icon offline" id="statusIcon">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" />
+      </svg>
+    </div>
+    <h1 id="statusTitle">You're Offline</h1>
+    <p id="statusMessage">It looks like you've lost your internet connection. Your changes will sync automatically when you're back online.</p>
+    
+    <div class="pending-badge" id="pendingBadge" style="display: none;">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <span id="pendingCount">0 changes pending</span>
+    </div>
+    
+    <button class="retry-btn" id="retryBtn" onclick="handleRetry()">
+      <span id="btnText">Try Again</span>
+      <span class="spinner" id="btnSpinner" style="display: none;"></span>
+    </button>
+    
+    <div class="tips">
+      <h3>Tips for staying connected:</h3>
+      <ul>
+        <li>Check your Wi-Fi or mobile data</li>
+        <li>Move to an area with better signal</li>
+        <li>Your data is saved locally</li>
+        <li>Changes will sync automatically</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    let retryCount = 0;
+    const maxRetries = 3;
+
+    async function checkConnection() {
+      try {
+        const response = await fetch('/api/health', { 
+          method: 'HEAD',
+          cache: 'no-cache'
+        });
+        return response.ok;
+      } catch {
+        return navigator.onLine;
+      }
+    }
+
+    async function handleRetry() {
+      const btn = document.getElementById('retryBtn');
+      const btnText = document.getElementById('btnText');
+      const btnSpinner = document.getElementById('btnSpinner');
+      const icon = document.getElementById('statusIcon');
+      const title = document.getElementById('statusTitle');
+      const message = document.getElementById('statusMessage');
+      
+      btn.disabled = true;
+      btnText.textContent = 'Checking...';
+      btnSpinner.style.display = 'inline-block';
+      icon.classList.add('syncing');
+      icon.classList.remove('offline');
+      icon.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>';
+      
+      const isOnline = await checkConnection();
+      
+      if (isOnline) {
+        title.textContent = 'Back Online!';
+        message.textContent = 'Your connection is restored. Redirecting you back to the app...';
+        icon.classList.remove('syncing', 'offline');
+        icon.classList.add('success');
+        icon.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>';
+        
+        setTimeout(() => {
+          window.location.reload();
+        }, 1500);
+      } else {
+        retryCount++;
+        
+        if (retryCount >= maxRetries) {
+          title.textContent = 'Still Offline';
+          message.textContent = 'We couldn\'t restore your connection. Please check your internet settings and try again.';
+          btnText.textContent = 'Max retries reached';
+          btn.disabled = true;
+        } else {
+          const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+          btnText.textContent = `Retrying in ${delay/1000}s...`;
+          
+          setTimeout(() => {
+            btn.disabled = false;
+            btnText.textContent = 'Try Again';
+            btnSpinner.style.display = 'none';
+          }, delay);
+        }
+        
+        icon.classList.remove('syncing');
+        icon.classList.add('offline');
+        icon.innerHTML = '<svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414" /></svg>';
+      }
+      
+      btnSpinner.style.display = 'none';
+    }
+
+    window.addEventListener('online', () => {
+      window.location.reload();
+    });
+
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.ready.then(registration => {
+        registration.active?.postMessage({ type: 'CHECK_CONNECTION' });
+      });
+    }
+  </script>
+</body>
+</html>

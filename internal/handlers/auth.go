@@ -255,3 +255,19 @@ func (h *AuthHandler) VerifyOTP(c *fiber.Ctx) error {
 		"note":    "Configure OTP service for production",
 	})
 }
+
+// GetTwoFactorStatus returns the 2FA status for the authenticated user
+func (h *AuthHandler) GetTwoFactorStatus(c *fiber.Ctx) error {
+	userID := c.Locals("user_id")
+	if userID == nil {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
+			"error": "Unauthorized",
+		})
+	}
+
+	// TODO: Check actual 2FA status from database
+	// For now, return disabled status
+	return c.JSON(fiber.Map{
+		"enabled": false,
+	})
+}

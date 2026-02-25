@@ -29,12 +29,9 @@ func New(repo Repository) *Handler {
 // List returns all webhooks for a shop
 // GET /api/v1/webhooks
 func (h *Handler) List(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shopId"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "invalid shop ID"})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
-	webhooks, err := h.webhookRepo.GetByShopID(uint(shopID))
+	webhooks, err := h.webhookRepo.GetByShopID(shopID)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -68,7 +65,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		ShopID uint   `json:"shop_id"`
 		Name   string `json:"name"`
 		URL    string `json:"url"`
-		Events string `json:"events"` // comma-separated
+		Events any    `json:"events"` // string or array
 	}
 
 	var req Request
@@ -76,8 +73,23 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid request body"})
 	}
 
+	// Support both string and array events
+	var events string
+	switch v := req.Events.(type) {
+	case string:
+		events = v
+	case []interface{}:
+		var arr []string
+		for _, e := range v {
+			if s, ok := e.(string); ok {
+				arr = append(arr, s)
+			}
+		}
+		events = joinEvents(arr)
+	}
+
 	// Validation
-	if req.Name == "" || req.URL == "" || req.Events == "" {
+	if req.Name == "" || req.URL == "" || events == "" {
 		return c.Status(400).JSON(fiber.Map{
 			"error": "name, url, and events are required",
 		})
@@ -89,8 +101,8 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	// Validate events
-	events := splitEvents(req.Events)
-	if len(events) == 0 {
+	eventList := splitEvents(events)
+	if len(eventList) == 0 {
 		return c.Status(400).JSON(fiber.Map{"error": "at least one event is required"})
 	}
 
@@ -98,11 +110,11 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	secret := generateRandomSecret()
 
 	webhook := &models.Webhook{
-		ShopID:  req.ShopID,
-		Name:    req.Name,
-		URL:     req.URL,
-		Events:  req.Events,
-		Secret:  secret,
+		ShopID:   c.Locals("shop_id").(uint),
+		Name:     req.Name,
+		URL:      req.URL,
+		Events:   events,
+		Secret:   secret,
 		IsActive: true,
 	}
 
@@ -111,7 +123,7 @@ func (h *Handler) Create(c *fiber.Ctx) error {
 	}
 
 	return c.Status(201).JSON(fiber.Map{
-		"data": webhook,
+		"data":    webhook,
 		"message": "webhook created successfully",
 		"warning": "Save the secret - it won't be shown again: " + secret,
 	})
@@ -168,7 +180,7 @@ func (h *Handler) Update(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"data": webhook,
+		"data":    webhook,
 		"message": "webhook updated successfully",
 	})
 }
@@ -217,7 +229,7 @@ func (h *Handler) Test(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message": "Test event would be sent",
 		"webhook": webhook.URL,
-		"event": testEvent,
+		"event":   testEvent,
 	})
 }
 
@@ -261,6 +273,17 @@ func split(s, sep string) []string {
 		}
 	}
 	result = append(result, s[start:])
+	return result
+}
+
+func joinEvents(events []string) string {
+	if len(events) == 0 {
+		return ""
+	}
+	result := events[0]
+	for i := 1; i < len(events); i++ {
+		result += "," + events[i]
+	}
 	return result
 }
 

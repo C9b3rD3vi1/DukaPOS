@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
@@ -148,7 +149,7 @@ func (r *ProductRepository) GetByCategory(shopID uint, category string) ([]model
 func (r *ProductRepository) GetCategories(shopID uint) ([]string, error) {
 	var categories []string
 	err := r.db.Model(&models.Product{}).
-		Where("shop_id = ? AND category != '' AND is_active = ? AND name NOT LIKE '__category_%'", shopID, true).
+		Where("shop_id = ? AND category != '' AND is_active = ? AND category NOT LIKE '__category_%'", shopID, true).
 		Distinct("category").
 		Pluck("category", &categories).Error
 	return categories, err
@@ -246,6 +247,41 @@ func (r *SaleRepository) GetTodaySales(shopID uint) ([]models.Sale, error) {
 	startOfDay := time.Now().Truncate(24 * time.Hour)
 	endOfDay := startOfDay.Add(24 * time.Hour)
 	return r.GetByDateRange(shopID, startOfDay, endOfDay)
+}
+
+// GetTopProducts gets top selling products for a shop
+func (r *SaleRepository) GetTopProducts(shopID uint, limit int) ([]models.Product, error) {
+	type result struct {
+		ProductID uint
+		TotalSold float64
+	}
+	var results []result
+
+	startOfWeek := time.Now().AddDate(0, 0, -7)
+
+	err := r.db.Model(&models.Sale{}).
+		Select("product_id, SUM(quantity) as total_sold").
+		Where("shop_id = ? AND created_at >= ?", shopID, startOfWeek).
+		Group("product_id").
+		Order("total_sold DESC").
+		Limit(limit).
+		Find(&results).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(results) == 0 {
+		return []models.Product{}, nil
+	}
+
+	var productIDs []uint
+	for _, res := range results {
+		productIDs = append(productIDs, res.ProductID)
+	}
+
+	var products []models.Product
+	err = r.db.Where("id IN ?", productIDs).Find(&products).Error
+	return products, err
 }
 
 // GetTotalSales gets total sales amount for a shop
@@ -359,6 +395,94 @@ func (r *AuditLogRepository) Create(log *models.AuditLog) error {
 func (r *AuditLogRepository) GetByShopID(shopID uint, limit int) ([]models.AuditLog, error) {
 	var logs []models.AuditLog
 	err := r.db.Where("shop_id = ?", shopID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	return logs, err
+}
+
+// GetByUserID gets audit logs for a specific user
+func (r *AuditLogRepository) GetByUserID(userID uint, limit int) ([]models.AuditLog, error) {
+	var logs []models.AuditLog
+	err := r.db.Where("user_id = ?", userID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	return logs, err
+}
+
+// GetByEntity gets audit logs for a specific entity
+func (r *AuditLogRepository) GetByEntity(entityType string, entityID uint, limit int) ([]models.AuditLog, error) {
+	var logs []models.AuditLog
+	err := r.db.Where("entity_type = ? AND entity_id = ?", entityType, entityID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	return logs, err
+}
+
+// GetByAction gets audit logs filtered by action type
+func (r *AuditLogRepository) GetByAction(shopID uint, action string, limit int) ([]models.AuditLog, error) {
+	var logs []models.AuditLog
+	err := r.db.Where("shop_id = ? AND action = ?", shopID, action).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	return logs, err
+}
+
+// GetByDateRange gets audit logs within a date range
+func (r *AuditLogRepository) GetByDateRange(shopID uint, start, end time.Time) ([]models.AuditLog, error) {
+	var logs []models.AuditLog
+	err := r.db.Where("shop_id = ? AND created_at BETWEEN ? AND ?", shopID, start, end).
+		Order("created_at DESC").
+		Find(&logs).Error
+	return logs, err
+}
+
+// CountByAction counts audit logs by action type
+func (r *AuditLogRepository) CountByAction(shopID uint, action string) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.AuditLog{}).
+		Where("shop_id = ? AND action = ?", shopID, action).
+		Count(&count).Error
+	return count, err
+}
+
+// GetByID gets a single audit log by ID
+func (r *AuditLogRepository) GetByID(id string, shopID uint, log *models.AuditLog) error {
+	var parsedID uint
+	_, err := fmt.Sscanf(id, "%d", &parsedID)
+	if err != nil {
+		return err
+	}
+	return r.db.Where("id = ? AND shop_id = ?", parsedID, shopID).First(log).Error
+}
+
+// GetByShopAndUser gets audit logs for a shop and user
+func (r *AuditLogRepository) GetByShopAndUser(shopID uint, userID string, limit int) ([]models.AuditLog, error) {
+	var parsedUserID uint
+	_, err := fmt.Sscanf(userID, "%d", &parsedUserID)
+	if err != nil {
+		return nil, err
+	}
+	var logs []models.AuditLog
+	err = r.db.Where("shop_id = ? AND user_id = ?", shopID, parsedUserID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	return logs, err
+}
+
+// GetByEntityAndShop gets audit logs for an entity within a shop
+func (r *AuditLogRepository) GetByEntityAndShop(shopID uint, entityType, entityID string, limit int) ([]models.AuditLog, error) {
+	var parsedEntityID uint
+	_, err := fmt.Sscanf(entityID, "%d", &parsedEntityID)
+	if err != nil {
+		return nil, err
+	}
+	var logs []models.AuditLog
+	err = r.db.Where("shop_id = ? AND entity_type = ? AND entity_id = ?", shopID, entityType, parsedEntityID).
 		Order("created_at DESC").
 		Limit(limit).
 		Find(&logs).Error

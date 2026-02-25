@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">DukaPOS</string>
+    <string name="title_activity_main">DukaPOS</string>
+    <string name="package_name">com.dukapos.app</string>
+    <string name="custom_url_scheme">com.dukapos.app</string>
+</resources>

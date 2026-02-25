@@ -6,6 +6,7 @@ import (
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/repository"
+	"github.com/C9b3rD3vi1/DukaPOS/internal/services/cache"
 	"github.com/gofiber/fiber/v2"
 )
 
@@ -75,37 +76,50 @@ func (h *ShopHandler) GetAccount(c *fiber.Ctx) error {
 		})
 	}
 
-	if shop.AccountID == 0 {
-		return c.JSON(fiber.Map{
-			"id":         shop.ID,
-			"account_id": 0,
-			"shops":      []models.Shop{*shop},
-		})
-	}
-
 	account, err := h.accountRepo.GetByID(shop.AccountID)
 	if err != nil {
-		return c.JSON(fiber.Map{
-			"id":         shop.ID,
-			"account_id": shop.AccountID,
-			"shops":      []models.Shop{*shop},
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Account not found",
 		})
 	}
 
-	shops, _ := h.accountRepo.GetShops(account.ID)
-	if shops == nil {
-		shops = []models.Shop{*shop}
+	shops, err := h.shopRepo.GetByAccountID(account.ID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
 	}
 
 	return c.JSON(fiber.Map{
-		"id":         account.ID,
-		"email":      account.Email,
-		"name":       account.Name,
-		"phone":      account.Phone,
-		"plan":       account.Plan,
-		"account_id": account.ID,
-		"shops":      shops,
+		"account": account,
+		"shops":   shops,
 	})
+}
+
+// ListShops returns all shops for the current user's account
+func (h *ShopHandler) ListShops(c *fiber.Ctx) error {
+	if h.accountRepo == nil {
+		return c.Status(fiber.StatusNotImplemented).JSON(fiber.Map{
+			"error": "Account feature not available",
+		})
+	}
+
+	shopID := c.Locals("shop_id").(uint)
+	shop, err := h.shopRepo.GetByID(shopID)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{
+			"error": "Shop not found",
+		})
+	}
+
+	shops, err := h.shopRepo.GetByAccountID(shop.AccountID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": err.Error(),
+		})
+	}
+
+	return c.JSON(fiber.Map{"data": shops})
 }
 
 // UpdateProfile updates the shop's profile
@@ -188,14 +202,20 @@ func (h *ShopHandler) GetDashboard(c *fiber.Ctx) error {
 	// Get recent sales
 	recentSales, _ := h.saleRepo.GetByShopID(shopID, 10)
 
+	// Get top products (best sellers this week)
+	topProducts, _ := h.saleRepo.GetTopProducts(shopID, 5)
+
 	return c.JSON(fiber.Map{
-		"total_products":  len(products),
-		"total_sales":     totalSales,
-		"total_profit":    totalProfit,
-		"today_sales":     len(sales),
-		"low_stock_count": len(lowStock),
-		"low_stock":       lowStock,
-		"recent_sales":    recentSales,
+		"product_count":     len(products),
+		"total_sales":       totalSales,
+		"total_profit":      totalProfit,
+		"transaction_count": len(sales),
+		"today_sales":       len(sales),
+		"total_products":    len(products),
+		"low_stock_count":   len(lowStock),
+		"low_stock":         lowStock,
+		"recent_sales":      recentSales,
+		"top_products":      topProducts,
 	})
 }
 
@@ -574,6 +594,7 @@ type ReportHandler struct {
 	saleRepo    *repository.SaleRepository
 	productRepo *repository.ProductRepository
 	summaryRepo *repository.DailySummaryRepository
+	cache       *cache.CacheService
 }
 
 // NewReportHandler creates a new report handler
@@ -586,13 +607,53 @@ func NewReportHandler(
 		saleRepo:    saleRepo,
 		productRepo: productRepo,
 		summaryRepo: summaryRepo,
+		cache:       nil,
+	}
+}
+
+// NewReportHandlerWithCache creates a new report handler with caching
+func NewReportHandlerWithCache(
+	saleRepo *repository.SaleRepository,
+	productRepo *repository.ProductRepository,
+	summaryRepo *repository.DailySummaryRepository,
+	cache *cache.CacheService,
+) *ReportHandler {
+	return &ReportHandler{
+		saleRepo:    saleRepo,
+		productRepo: productRepo,
+		summaryRepo: summaryRepo,
+		cache:       cache,
 	}
 }
 
 // GetDailyReport returns daily report
 func (h *ReportHandler) GetDailyReport(c *fiber.Ctx) error {
 	shopID := c.Locals("shop_id").(uint)
+	today := time.Now().Truncate(24 * time.Hour)
 
+	// Check cache first
+	if h.cache != nil {
+		cached, err := h.cache.GetDailySummary(shopID, today)
+		if err == nil && cached != nil {
+			// Return cached data
+			lowStock, _ := h.productRepo.GetLowStock(shopID)
+			return c.JSON(fiber.Map{
+				"type":              "daily",
+				"date":              "today",
+				"total_sales":       cached.TotalSales,
+				"total_profit":      cached.TotalProfit,
+				"transactions":      cached.TransactionCount,
+				"average_sale":      cached.AverageSale,
+				"top_products":      cached.TopProducts,
+				"by_payment_method": cached.ByPaymentMethod,
+				"low_stock_count":   len(lowStock),
+				"low_stock":         lowStock,
+				"cached":            true,
+			})
+		}
+	}
+
+	// Get from database
 	sales, err := h.saleRepo.GetTodaySales(shopID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
@@ -603,6 +664,7 @@ func (h *ReportHandler) GetDailyReport(c *fiber.Ctx) error {
 	var totalSales, totalProfit, totalCost float64
 	var transactionCount int
 	productSales := make(map[string]float64)
+	paymentMethods := make(map[string]float64)
 
 	for _, sale := range sales {
 		totalSales += sale.TotalAmount
@@ -610,33 +672,71 @@ func (h *ReportHandler) GetDailyReport(c *fiber.Ctx) error {
 		totalCost += sale.CostAmount
 		transactionCount++
 		productSales[sale.Product.Name] += sale.TotalAmount
+		paymentMethods[string(sale.PaymentMethod)] += sale.TotalAmount
 	}
 
-	// Find top product
-	var topProduct string
-	var topAmount float64
-	for name, amount := range productSales {
-		if amount > topAmount {
-			topProduct = name
-			topAmount = amount
+	// Find top products
+	type topProd struct {
+		name     string
+		quantity int
+		revenue  float64
+	}
+	var topProducts []topProd
+	for name, revenue := range productSales {
+		topProducts = append(topProducts, topProd{name: name, revenue: revenue})
+	}
+	// Sort and take top 5
+	for i := 0; i < len(topProducts)-1; i++ {
+		for j := i + 1; j < len(topProducts); j++ {
+			if topProducts[j].revenue > topProducts[i].revenue {
+				topProducts[i], topProducts[j] = topProducts[j], topProducts[i]
+			}
 		}
+	}
+	if len(topProducts) > 5 {
+		topProducts = topProducts[:5]
 	}
 
 	// Get low stock
 	lowStock, _ := h.productRepo.GetLowStock(shopID)
 
-	return c.JSON(fiber.Map{
-		"type":            "daily",
-		"date":            "today",
-		"total_sales":     totalSales,
-		"total_profit":    totalProfit,
-		"total_cost":      totalCost,
-		"transactions":    transactionCount,
-		"top_product":     topProduct,
-		"top_amount":      topAmount,
-		"low_stock_count": len(lowStock),
-		"low_stock":       lowStock,
-	})
+	response := fiber.Map{
+		"type":         "daily",
+		"date":         "today",
+		"total_sales":  totalSales,
+		"total_profit": totalProfit,
+		"total_cost":   totalCost,
+		"transactions": transactionCount,
+		"average_sale": func() float64 {
+			if transactionCount > 0 {
+				return totalSales / float64(transactionCount)
+			}
+			return 0
+		}(),
+		"top_products":      topProducts,
+		"by_payment_method": paymentMethods,
+		"low_stock_count":   len(lowStock),
+		"low_stock":         lowStock,
+	}
+
+	// Cache the result
+	if h.cache != nil && len(sales) > 0 {
+		go h.cache.SetDailySummary(shopID, today, &cache.DailySummaryCache{
+			TotalSales:       totalSales,
+			TotalProfit:      totalProfit,
+			TransactionCount: transactionCount,
+			AverageSale: func() float64 {
+				if transactionCount > 0 {
+					return totalSales / float64(transactionCount)
+				}
+				return 0
+			}(),
+			ByPaymentMethod: paymentMethods,
+			GeneratedAt:     time.Now(),
+		}, 15*time.Minute)
+	}
+
+	return c.JSON(response)
 }
 
 // GetWeeklyReport returns weekly report

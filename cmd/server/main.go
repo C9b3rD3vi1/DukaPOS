@@ -5,43 +5,46 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
-	"time"
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/config"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/database"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/handlers"
 	aihandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/ai"
 	apihandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/api"
+	auditloghandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/auditlog"
 	billinghandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/billing"
-	currhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/currency"
+	currencyhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/currency"
 	docshandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/docs"
 	emailhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/email"
 	exporthandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/export"
+	jobscheduler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/jobscheduler"
 	loyaltyhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/loyalty"
 	mpesahandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/mpesa"
 	printerhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/printer"
+	pushhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/push"
 	qrhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/qr"
 	smshandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/sms"
 	staffhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/staff"
 	supplierhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/supplier"
+	twofactorhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/twofactor"
 	ussdhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/ussd"
 	webhookhandler "github.com/C9b3rD3vi1/DukaPOS/internal/handlers/webhook"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/middleware"
-	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/repository"
+	"github.com/C9b3rD3vi1/DukaPOS/internal/routes"
 	"github.com/C9b3rD3vi1/DukaPOS/internal/services"
 	ai "github.com/C9b3rD3vi1/DukaPOS/internal/services/ai"
 	apiservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/api"
 	cacheservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/cache"
+	currencyservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/currency"
 	email "github.com/C9b3rD3vi1/DukaPOS/internal/services/email"
 	encryption "github.com/C9b3rD3vi1/DukaPOS/internal/services/encryption"
 	mpesaservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/mpesa"
 	printerservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/printer"
 	qrservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/qr"
-	scheduler "github.com/C9b3rD3vi1/DukaPOS/internal/services/scheduler"
 	smsservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/sms"
+	twofactorservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/twofactor"
 	ussdservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/ussd"
 	webhookservice "github.com/C9b3rD3vi1/DukaPOS/internal/services/webhook"
 	websocket "github.com/C9b3rD3vi1/DukaPOS/internal/services/websocket"
@@ -232,6 +235,7 @@ func main() {
 	shopHandler := handlers.NewShopHandlerWithAccount(shopRepo, productRepo, saleRepo, accountRepo)
 	productHandler := handlers.NewProductHandler(productRepo)
 	saleHandler := handlers.NewSaleHandler(saleRepo, productRepo)
+	reportHandler := handlers.NewReportHandlerWithCache(saleRepo, productRepo, summaryRepo, cacheSvc)
 	staffHandler := staffhandler.New(staffRepo, shopRepo)
 	webhookHandler := webhookhandler.New(webhookRepo)
 
@@ -263,176 +267,12 @@ func main() {
 	}
 
 	// ========== Initialize Scheduler ==========
-	scheduler := scheduler.New()
-
-	// Daily report task - runs every 24 hours
-	scheduler.AddTask("daily_reports", 24*time.Hour, func() error {
-		log.Println("📊 Running daily reports task...")
-
-		shops, _, err := shopRepo.List(1000, 0)
-		if err != nil {
-			log.Printf("❌ Failed to get shops: %v", err)
-			return err
-		}
-
-		for _, shop := range shops {
-			if !shop.IsActive {
-				continue
-			}
-
-			sales, err := saleRepo.GetTodaySales(shop.ID)
-			if err != nil {
-				continue
-			}
-
-			totalSales := 0.0
-			totalProfit := 0.0
-			for _, s := range sales {
-				totalSales += s.TotalAmount
-				totalProfit += s.Profit
-			}
-
-			if len(sales) > 0 {
-				reportMsg := fmt.Sprintf("📊 DAILY REPORT - %s\n\n💰 Today's Sales: KSh %.0f\n💵 Profit: KSh %.0f\n📝 Transactions: %d\n\nSent automatically by DukaPOS", shop.Name, totalSales, totalProfit, len(sales))
-
-				if err := whatsappHandler.SendWhatsAppMessage(shop.Phone, reportMsg); err != nil {
-					log.Printf("❌ Failed to send daily report to shop %s: %v", shop.Name, err)
-				} else {
-					log.Printf("✅ Daily report sent to shop %s", shop.Name)
-				}
-			}
-		}
-
-		log.Println("✅ Daily reports task completed")
-		return nil
+	routes.RegisterScheduledTasks(routes.SchedulerConfig{
+		ShopRepo:     shopRepo,
+		SaleRepo:     saleRepo,
+		ProductRepo:  productRepo,
+		SendWhatsApp: whatsappHandler.SendWhatsAppMessage,
 	})
-
-	// Low stock check - runs every 6 hours
-	scheduler.AddTask("low_stock_check", 6*time.Hour, func() error {
-		log.Println("⚠️ Running low stock check...")
-
-		shops, _, err := shopRepo.List(1000, 0)
-		if err != nil {
-			return err
-		}
-
-		for _, shop := range shops {
-			if !shop.IsActive {
-				continue
-			}
-
-			lowStock, err := productRepo.GetLowStock(shop.ID)
-			if err != nil {
-				continue
-			}
-
-			if len(lowStock) > 0 {
-				var productList strings.Builder
-				productList.WriteString("⚠️ LOW STOCK ALERT\n\n")
-				for _, p := range lowStock {
-					productList.WriteString(fmt.Sprintf("• %s: %d (min: %d)\n", p.Name, p.CurrentStock, p.LowStockThreshold))
-				}
-				productList.WriteString("\nAdd stock: add [name] [price] [qty]")
-
-				if err := whatsappHandler.SendWhatsAppMessage(shop.Phone, productList.String()); err != nil {
-					log.Printf("❌ Failed to send low stock alert to shop %s: %v", shop.Name, err)
-				} else {
-					log.Printf("✅ Low stock alert sent to shop %s", shop.Name)
-				}
-			}
-		}
-
-		log.Println("✅ Low stock check completed")
-		return nil
-	})
-
-	// Weekly report task - runs every 7 days
-	scheduler.AddTask("weekly_reports", 7*24*time.Hour, func() error {
-		log.Println("📊 Running weekly reports task...")
-
-		shops, _, err := shopRepo.List(1000, 0)
-		if err != nil {
-			return err
-		}
-
-		for _, shop := range shops {
-			if !shop.IsActive {
-				continue
-			}
-
-			end := time.Now()
-			start := end.AddDate(0, 0, -7)
-			sales, err := saleRepo.GetByDateRange(shop.ID, start, end)
-			if err != nil {
-				continue
-			}
-
-			if len(sales) > 0 {
-				totalSales := 0.0
-				totalProfit := 0.0
-				for _, s := range sales {
-					totalSales += s.TotalAmount
-					totalProfit += s.Profit
-				}
-
-				reportMsg := fmt.Sprintf("📊 WEEKLY REPORT\n\n💰 Weekly Sales: KSh %.0f\n💵 Profit: KSh %.0f\n📝 Transactions: %d\n\nHave a great week!", totalSales, totalProfit, len(sales))
-
-				if err := whatsappHandler.SendWhatsAppMessage(shop.Phone, reportMsg); err != nil {
-					log.Printf("❌ Failed to send weekly report to shop %s: %v", shop.Name, err)
-				}
-			}
-		}
-
-		log.Println("✅ Weekly reports task completed")
-		return nil
-	})
-
-	// Monthly report task - runs every 30 days
-	scheduler.AddTask("monthly_reports", 30*24*time.Hour, func() error {
-		log.Println("📊 Running monthly reports task...")
-
-		shops, _, err := shopRepo.List(1000, 0)
-		if err != nil {
-			return err
-		}
-
-		for _, shop := range shops {
-			if !shop.IsActive {
-				continue
-			}
-
-			end := time.Now()
-			start := end.AddDate(0, -1, 0)
-			sales, err := saleRepo.GetByDateRange(shop.ID, start, end)
-			if err != nil {
-				continue
-			}
-
-			if len(sales) > 0 {
-				totalSales := 0.0
-				totalProfit := 0.0
-				for _, s := range sales {
-					totalSales += s.TotalAmount
-					totalProfit += s.Profit
-				}
-
-				avgDaily := totalSales / 30
-
-				reportMsg := fmt.Sprintf("📊 MONTHLY REPORT\n\n💰 Monthly Sales: KSh %.0f\n💵 Profit: KSh %.0f\n📝 Transactions: %d\n📈 Daily Avg: KSh %.0f\n\nGreat progress this month! 🎉", totalSales, totalProfit, len(sales), avgDaily)
-
-				if err := whatsappHandler.SendWhatsAppMessage(shop.Phone, reportMsg); err != nil {
-					log.Printf("❌ Failed to send monthly report to shop %s: %v", shop.Name, err)
-				}
-			}
-		}
-
-		log.Println("✅ Monthly reports task completed")
-		return nil
-	})
-
-	// Start scheduler
-	scheduler.Start()
-	log.Println("✅ Scheduler initialized")
 
 	// ========== Create Fiber App ==========
 	var emailHandler *emailhandler.Handler
@@ -490,194 +330,63 @@ func main() {
 	// Serve static files
 	app.Static("/static", "./static")
 
-	// Template engine
+	// Serve React frontend (PWA)
+	webHandler := handlers.NewWebHandler(shopRepo, productRepo, saleRepo)
+
 	if cfg.FeatureWebDashboardEnabled {
-		// Load templates
-		app.Static("/templates", "./templates")
+		// Serve the React frontend built with Vite
+		app.Static("/", "./dukapos-frontend/dist")
 
-		// Serve the JS dashboard
-		app.Static("/dashboard", "./static")
-
-		// Initialize web handler
+		// Initialize web handler for API fallback
 		webHandler := handlers.NewWebHandler(shopRepo, productRepo, saleRepo)
 		webHandler.SetAdditionalRepos(summaryRepo, customerRepo, staffRepo)
 
-		// Web routes - serve templates from templates directory
+		// Legacy template routes (for backward compatibility)
 		web := app.Group("")
 
 		// Landing page
 		web.Get("/", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/landing.html")
+			return c.SendFile("./dukapos-frontend/dist/index.html")
 		})
 
 		// Login page
 		web.Get("/login", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/login.html")
+			return c.SendFile("./dukapos-frontend/dist/index.html")
 		})
 
 		// Register page
 		web.Get("/register", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/register.html")
+			return c.SendFile("./dukapos-frontend/dist/index.html")
 		})
 
-		// Logout
-		web.Get("/logout", func(c *fiber.Ctx) error {
-			c.ClearCookie("token")
-			return c.Redirect("/login")
+		// Dashboard (React app handles routing)
+		web.Get("/dashboard/*", func(c *fiber.Ctx) error {
+			return c.SendFile("./dukapos-frontend/dist/index.html")
 		})
 
-		// Dashboard
-		web.Get("/dashboard", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/dashboard.html")
-		})
-		web.Get("/dashboard/:shop_id", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/dashboard.html")
+		// Admin routes
+		web.Get("/admin/*", func(c *fiber.Ctx) error {
+			return c.SendFile("./dukapos-frontend/dist/index.html")
 		})
 
-		// Products
-		web.Get("/products", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/products.html")
-		})
-		web.Get("/products/:shop_id", webHandler.ProductsList)
-
-		// Sales
-		web.Get("/sales", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/sales.html")
-		})
-		web.Get("/sales/:shop_id", webHandler.SalesList)
-
-		// Customers
-		web.Get("/customers", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/customers.html")
-		})
-
-		// Suppliers
-		web.Get("/suppliers", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/suppliers.html")
-		})
-
-		// Orders
-		web.Get("/orders", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/orders.html")
-		})
-
-		// M-Pesa
-		web.Get("/mpesa", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/mpesa.html")
-		})
-
-		// Staff
-		web.Get("/staff", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/staff.html")
-		})
-
-		// AI Insights
-		web.Get("/ai", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/ai.html")
-		})
-
-		// API Keys
-		web.Get("/apikeys", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/apikeys.html")
-		})
-
-		// Webhooks
-		web.Get("/webhooks", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/webhooks.html")
-		})
-
-		// SMS
-		web.Get("/sms", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/sms.html")
-		})
-
-		// Email
-		web.Get("/email", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/email.html")
-		})
-
-		// Printer
-		web.Get("/printer", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/printer.html")
-		})
-
-		// Reports
-		web.Get("/reports", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/reports.html")
-		})
-
-		// Export
-		web.Get("/export", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/export.html")
-		})
-
-		// Settings
-		web.Get("/settings", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/settings.html")
-		})
-
-		// Billing
-		web.Get("/billing", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/billing.html")
-		})
-
-		// Admin Routes - with auth middleware
-		adminWeb := web.Group("/admin")
-		adminWeb.Use(middleware.JWT(authService))
-		adminWeb.Use(func(c *fiber.Ctx) error {
-			account, ok := c.Locals("account").(*models.Account)
-			if !ok || account == nil || !account.IsAdmin {
-				return c.Redirect("/admin/login?error=unauthorized")
-			}
-			return c.Next()
-		})
-
-		adminWeb.Get("/", func(c *fiber.Ctx) error {
-			return c.Redirect("/admin/dashboard")
-		})
-		adminWeb.Get("/dashboard", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/admin/dashboard.html")
-		})
-		adminWeb.Get("/users", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/admin/users.html")
-		})
-		adminWeb.Get("/accounts", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/admin/accounts.html")
-		})
-		adminWeb.Get("/shops", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/admin/shops.html")
-		})
-		adminWeb.Get("/settings", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/admin/settings.html")
-		})
-		adminWeb.Get("/subscriptions", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/admin/subscriptions.html")
-		})
-
-		// Admin login page (no auth required)
-		web.Get("/admin/login", func(c *fiber.Ctx) error {
-			return c.SendFile("./templates/admin/login.html")
-		})
-
-		log.Println("✅ Web dashboard enabled")
-
-		// Dashboard API routes - use JWT auth like protected routes
-		webAPI := app.Group("/api/v1")
-		webAPI.Use(middleware.JWT(authService))
-		webAPI.Get("/shop/dashboard-json/:shop_id", webHandler.DashboardJSON)
-		webAPI.Get("/shop/dashboard/:shop_id", webHandler.Dashboard)
-		// Put specific routes BEFORE parameterized routes
-		webAPI.Get("/products/categories", productHandler.ListCategories)
-		webAPI.Post("/products/bulk", productHandler.BulkCreateProducts)
-		webAPI.Post("/products", webHandler.APIProductCreate)
-		webAPI.Get("/products", productHandler.ListProducts)
-		webAPI.Get("/products/:id", productHandler.GetProduct)
-		webAPI.Put("/products/:id", webHandler.APIProductUpdate)
-		webAPI.Delete("/products/:id", webHandler.APIProductDelete)
-		webAPI.Get("/sales/:shop_id", webHandler.APISales)
-		webAPI.Post("/sales", webHandler.APISaleCreate)
-		webAPI.Get("/reports/:shop_id", webHandler.APIReports)
+		log.Println("✅ React frontend enabled at /")
 	}
+
+	// Dashboard API routes - use JWT auth like protected routes
+	webAPI := app.Group("/api/v1")
+	webAPI.Use(middleware.JWT(authService))
+	webAPI.Get("/shop/dashboard-json/:shop_id", webHandler.DashboardJSON)
+	webAPI.Get("/shop/dashboard/:shop_id", webHandler.Dashboard)
+	webAPI.Get("/products/categories", productHandler.ListCategories)
+	webAPI.Post("/products/bulk", productHandler.BulkCreateProducts)
+	webAPI.Post("/products", webHandler.APIProductCreate)
+	webAPI.Get("/products", productHandler.ListProducts)
+	webAPI.Get("/products/:id", productHandler.GetProduct)
+	webAPI.Put("/products/:id", webHandler.APIProductUpdate)
+	webAPI.Delete("/products/:id", webHandler.APIProductDelete)
+	webAPI.Get("/sales/:shop_id", webHandler.APISales)
+	webAPI.Post("/sales", webHandler.APISaleCreate)
+	webAPI.Get("/reports/:shop_id", webHandler.APIReports)
 
 	// ========== API Routes ==========
 	api := app.Group("/api")
@@ -728,211 +437,131 @@ func main() {
 	auth.Post("/otp/send", authHandler.SendOTP)
 	auth.Post("/otp/verify", authHandler.VerifyOTP)
 
+	// ========== Create additional handlers for routes ==========
+	adminHandler := handlers.NewAdminHandler()
+	billingHandler := billinghandler.NewHandler(db, cfg)
+	planHandler := middleware.NewPlanInfoHandler()
+	customerHandler := handlers.NewCustomerHandler(customerRepo, shopRepo)
+	var loyaltyHandler *loyaltyhandler.Handler
+	var supplierHandler *supplierhandler.Handler
+	var printerHandler *printerhandler.Handler
+
+	if cfg.FeatureMultipleShopsEnabled {
+		loyaltyHandler = loyaltyhandler.NewHandler(customerRepo, saleRepo, db)
+		supplierHandler = supplierhandler.New(supplierRepo, orderRepo, productRepo)
+	}
+
+	if printerSvc != nil {
+		printerHandler = printerhandler.New(printerSvc)
+	}
+
 	// Protected routes
 	protected := api.Group("/v1")
 	protected.Use(middleware.JWT(authService))
 
-	// Plan/Subscription routes
-	planHandler := middleware.NewPlanInfoHandler()
+	// ========== Initialize Additional Handlers ==========
+	// Currency Handler
+	_ = currencyservice.NewService(db, cfg)
+	currencyHandler := currencyhandler.NewHandler(db, cfg)
+	log.Println("✅ Currency handler initialized")
+
+	// White Label Handler (using new handler)
+	whitelabelHandler := handlers.NewWhiteLabelHandler(db)
+	log.Println("✅ White Label handler initialized")
+
+	// Scheduled Report Handler
+	scheduledReportHandler := handlers.NewScheduledReportHandler(db)
+	log.Println("✅ Scheduled Report handler initialized")
+
+	// Staff Role Handler
+	staffRoleHandler := handlers.NewStaffRoleHandler(db)
+	log.Println("✅ Staff Role handler initialized")
+
+	// Audit Log Handler
+	auditLogHandler := auditloghandler.NewAuditLogHandler(auditRepo)
+	log.Println("✅ Audit Log handler initialized")
+
+	// TwoFactor Handler
+	twoFactorSvc := twofactorservice.NewService()
+	twoFactorHandler := twofactorhandler.NewTwoFactorHandler(twoFactorSvc)
+	log.Println("✅ TwoFactor handler initialized")
+
+	// Push Notification Handler
+	pushHandler := pushhandler.NewPushNotificationHandler(db)
+	log.Println("✅ Push Notification handler initialized")
+
+	// Plan routes
 	api.Get("/plans", planHandler.GetAllPlans)
-	protected.Get("/plan", planHandler.GetPlanInfo)
 
-	// ========== Admin Routes ==========
-	adminHandler := handlers.NewAdminHandler()
-	admin := protected.Group("/admin")
-	admin.Use(middleware.RequireAdmin())
-	admin.Get("/dashboard", adminHandler.Dashboard)
-	admin.Get("/accounts", adminHandler.GetAccounts)
-	admin.Get("/accounts/:id", adminHandler.GetAccount)
-	admin.Put("/accounts/:id/plan", adminHandler.UpdateAccountPlan)
-	admin.Put("/accounts/:id/status", adminHandler.UpdateAccountStatus)
-	admin.Get("/shops", adminHandler.GetShops)
-	admin.Get("/revenue", adminHandler.GetRevenueStats)
-	admin.Post("/upgrade-all", adminHandler.UpgradeAllAccounts)
+	// ========== Register All Routes ==========
+	routes.RegisterAllRoutes(routes.RouteConfig{
+		App:                         app,
+		AuthService:                 authService,
+		AuthHandler:                 authHandler,
+		ShopHandler:                 shopHandler,
+		ProductHandler:              productHandler,
+		SaleHandler:                 saleHandler,
+		ReportHandler:               reportHandler,
+		ExportHandler:               exportHandler,
+		StaffHandler:                staffHandler,
+		WebhookHandler:              webhookHandler,
+		CustomerHandler:             loyaltyHandler,
+		CustHandler:                 customerHandler,
+		SupplierHandler:             supplierHandler,
+		MpesaHandler:                mpesaHandler,
+		SMSHandler:                  smsHandler,
+		EmailHandler:                emailHandler,
+		AIHandler:                   aiHandler,
+		PrinterHandler:              printerHandler,
+		QRHandler:                   qrHandler,
+		BillingHandler:              billingHandler,
+		AdminHandler:                adminHandler,
+		APIKeyHandler:               apiKeyHandler,
+		WebHandler:                  webHandler,
+		PlanInfoHandler:             planHandler,
+		CurrencyHandler:             currencyHandler,
+		WhiteLabelHandler:           whitelabelHandler,
+		ScheduledReportHandler:      scheduledReportHandler,
+		StaffRoleHandler:            staffRoleHandler,
+		FeatureStaffAccountsEnabled: cfg.FeatureStaffAccountsEnabled,
+		FeatureMpesaEnabled:         cfg.FeatureMpesaEnabled,
+		FeatureAnalyticsEnabled:     cfg.FeatureAnalyticsEnabled,
+		FeatureMultipleShopsEnabled: cfg.FeatureMultipleShopsEnabled,
+		FeatureWebDashboardEnabled:  cfg.FeatureWebDashboardEnabled,
+		CustomerRepo:                customerRepo,
+		SaleRepo:                    saleRepo,
+		DB:                          db,
+	})
 
-	// Public admin fix endpoint (call once to create admin shop)
-	api.Post("/admin/fix", adminHandler.FixAdmin)
-
-	// Shop routes
-	protected.Get("/shop/profile", shopHandler.GetProfile)
-	protected.Put("/shop/profile", shopHandler.UpdateProfile)
-	protected.Get("/shop/dashboard", shopHandler.GetDashboard)
-	protected.Get("/shop/account", shopHandler.GetAccount)
-
-	// Product routes
-	protected.Get("/products", productHandler.ListProducts)
-	protected.Get("/products/:id", productHandler.GetProduct)
-	protected.Post("/products", productHandler.CreateProduct)
-	protected.Put("/products/:id", productHandler.UpdateProduct)
-	protected.Delete("/products/:id", productHandler.DeleteProduct)
-	protected.Post("/products/bulk", productHandler.BulkCreateProducts)
-	protected.Get("/products/categories", productHandler.ListCategories)
-	protected.Post("/products/categories", productHandler.CreateCategory)
-	protected.Put("/products/categories/:id", productHandler.UpdateCategory)
-	protected.Delete("/products/categories/:id", productHandler.DeleteCategory)
-
-	// Sale routes
-	protected.Get("/sales", saleHandler.ListSales)
-	protected.Get("/sales/:id", saleHandler.GetSale)
-	protected.Post("/sales", saleHandler.CreateSale)
-
-	// Export routes
-	protected.Get("/export/products", exportHandler.ExportProducts)
-	protected.Get("/export/sales", exportHandler.ExportSales)
-	protected.Get("/export/report", exportHandler.ExportReport)
-	protected.Get("/export/inventory", exportHandler.ExportInventory)
-
-	// QR Payment routes
-	if qrHandler != nil {
-		protected.Post("/qr/generate", qrHandler.GenerateDynamicQR)
-		protected.Post("/qr/static", qrHandler.GenerateStaticQR)
-		protected.Get("/qr/status/:id", qrHandler.GetPaymentStatus)
-		protected.Post("/qr/callback", qrHandler.HandleCallback)
+	// ========== Register Additional Handlers ==========
+	// Currency routes
+	if currencyHandler != nil {
+		currencyHandler.RegisterRoutes(protected)
 	}
 
-	// ========== Staff Routes (Feature Flag) ==========
-	if cfg.FeatureStaffAccountsEnabled {
-		staffRoutes := protected.Group("/staff")
-		staffRoutes.Use(middleware.RequirePro())
-		staffRoutes.Get("/", staffHandler.List)
-		staffRoutes.Get("/:id", staffHandler.Get)
-		staffRoutes.Post("/", staffHandler.Create)
-		staffRoutes.Put("/:id", staffHandler.Update)
-		staffRoutes.Delete("/:id", staffHandler.Delete)
-		staffRoutes.Put("/:id/pin", staffHandler.UpdatePin)
-		log.Println("✅ Staff routes enabled (Plan: Pro+)")
+	// White Label routes (handled in routes.go via RouteConfig)
+
+	// Audit Log routes
+	if auditLogHandler != nil {
+		auditLogHandler.RegisterRoutes(protected)
 	}
 
-	// ========== M-Pesa Routes (Feature Flag) ==========
-	if mpesaHandler != nil {
-		mpesaRoutes := protected.Group("/mpesa")
-		mpesaRoutes.Use(middleware.RequirePro())
-		mpesaRoutes.Post("/stk-push", mpesaHandler.STKPush)
-		mpesaRoutes.Get("/status/:checkoutId", mpesaHandler.GetStatus)
-		mpesaRoutes.Get("/payments", mpesaHandler.ListPayments)
-		mpesaRoutes.Post("/payments/:id/retry", mpesaHandler.RetryPayment)
-		mpesaRoutes.Get("/transactions", mpesaHandler.GetTransactions)
-		mpesaRoutes.Get("/balance", mpesaHandler.GetBalance)
-		mpesaRoutes.Post("/b2c", mpesaHandler.B2CSend)
-		log.Println("✅ M-Pesa routes enabled (Plan: Pro+)")
+	// TwoFactor routes
+	if twoFactorHandler != nil {
+		twoFactorHandler.RegisterRoutes(protected)
 	}
 
-	// ========== API Keys Routes (Feature Flag) ==========
-	if apiKeyHandler != nil {
-		apiKeyRoutes := protected.Group("/api-keys")
-		apiKeyRoutes.Use(middleware.RequireBusiness())
-		apiKeyRoutes.Get("/", apiKeyHandler.List)
-		apiKeyRoutes.Post("/", apiKeyHandler.Create)
-		apiKeyRoutes.Delete("/:id", apiKeyHandler.Revoke)
-		log.Println("✅ API Keys routes enabled")
+	// Push Notification routes
+	if pushHandler != nil {
+		pushHandler.RegisterRoutes(protected)
 	}
 
-	// ========== Webhook Routes (Feature Flag) ==========
-	if cfg.FeatureAnalyticsEnabled {
-		webhookRoutes := protected.Group("/webhooks")
-		webhookRoutes.Use(middleware.RequireBusiness())
-		webhookRoutes.Get("/", webhookHandler.List)
-		webhookRoutes.Get("/:id", webhookHandler.Get)
-		webhookRoutes.Post("/", webhookHandler.Create)
-		webhookRoutes.Put("/:id", webhookHandler.Update)
-		webhookRoutes.Delete("/:id", webhookHandler.Delete)
-		webhookRoutes.Post("/:id/test", webhookHandler.Test)
-		log.Println("✅ Webhook routes enabled (Plan: Business)")
+	// Job Scheduler routes
+	jobSchedulerHandler := jobscheduler.NewJobSchedulerHandler(routes.GetJobScheduler())
+	if jobSchedulerHandler != nil {
+		jobSchedulerHandler.RegisterRoutes(protected)
+		log.Println("✅ Job Scheduler handler initialized")
 	}
-
-	// ========== SMS Routes ==========
-	if smsHandler != nil {
-		smsHandler.RegisterRoutes(app, protected)
-		log.Println("✅ SMS routes enabled")
-	}
-
-	// ========== Email Routes ==========
-	if emailHandler != nil {
-		emailHandler.RegisterRoutes(protected)
-		log.Println("✅ Email routes enabled")
-	}
-
-	// ========== AI Routes (Feature Flag) ==========
-	if aiHandler != nil {
-		aiRoutes := protected.Group("/ai")
-		aiRoutes.Use(middleware.RequireBusiness())
-		aiRoutes.Get("/predictions/:shop_id", aiHandler.GetPredictions)
-		aiRoutes.Get("/restock/:shop_id", aiHandler.GetRestockRecommendations)
-		aiRoutes.Get("/analytics/:shop_id", aiHandler.GetSalesAnalytics)
-		aiRoutes.Get("/inventory-value/:shop_id", aiHandler.GetInventoryValue)
-		aiRoutes.Get("/trends/:shop_id", aiHandler.GetTrends)
-		aiRoutes.Post("/forecast/:shop_id", aiHandler.GenerateForecast)
-		log.Println("✅ AI Predictions routes enabled (Plan: Business)")
-	}
-
-	// ========== Customer/Loyalty Routes ==========
-	if cfg.FeatureAnalyticsEnabled {
-		customerHandler := handlers.NewCustomerHandler(customerRepo, shopRepo)
-		customerRoutes := protected.Group("/customers")
-		customerRoutes.Get("/", customerHandler.List)
-		customerRoutes.Get("/:id", customerHandler.Get)
-		customerRoutes.Post("/", customerHandler.Create)
-		customerRoutes.Put("/:id", customerHandler.Update)
-		customerRoutes.Delete("/:id", customerHandler.Delete)
-		log.Println("✅ Customer routes enabled")
-
-		loyaltyHandler := loyaltyhandler.NewHandler(customerRepo, saleRepo, db)
-		loyaltyRoutes := protected.Group("/loyalty")
-		loyaltyRoutes.Get("/points/:customer_id", loyaltyHandler.GetCustomerPoints)
-		loyaltyRoutes.Get("/stats/:customer_id", loyaltyHandler.GetCustomerStats)
-		loyaltyRoutes.Post("/redeem", loyaltyHandler.RedeemPoints)
-		loyaltyRoutes.Post("/earn", loyaltyHandler.EarnPoints)
-		loyaltyRoutes.Get("/transactions/:customer_id", loyaltyHandler.ListTransactions)
-		log.Println("✅ Loyalty routes enabled")
-	}
-
-	// Currency Routes
-	currencyHandler := currhandler.NewHandler(db, cfg)
-	currencyRoutes := protected.Group("/currency")
-	currencyRoutes.Get("/list", currencyHandler.ListCurrencies)
-	currencyRoutes.Get("/:code", currencyHandler.GetCurrency)
-	currencyRoutes.Post("/convert", currencyHandler.Convert)
-	currencyRoutes.Post("/format", currencyHandler.Format)
-	log.Println("✅ Currency routes enabled")
-
-	// ========== Billing Routes ==========
-	billingHandler := billinghandler.NewHandler(db, cfg)
-	billingRoutes := protected.Group("/billing")
-	billingRoutes.Get("/plans", billingHandler.GetPlans)
-	billingRoutes.Get("/current", billingHandler.GetCurrentPlan)
-	billingRoutes.Post("/upgrade", billingHandler.UpgradePlan)
-	log.Println("✅ Billing routes enabled")
-
-	// ========== Supplier/Order Routes (Pro Feature) ==========
-	supplierHandler := supplierhandler.New(supplierRepo, orderRepo, productRepo)
-	supplierRoutes := protected.Group("/suppliers")
-	supplierRoutes.Get("/", supplierHandler.ListSuppliers)
-	supplierRoutes.Post("/", supplierHandler.CreateSupplier)
-	supplierRoutes.Get("/:id", supplierHandler.GetSupplier)
-	supplierRoutes.Put("/:id", supplierHandler.UpdateSupplier)
-	supplierRoutes.Delete("/:id", supplierHandler.DeleteSupplier)
-
-	orderRoutes := protected.Group("/orders")
-	orderRoutes.Get("/", supplierHandler.ListOrders)
-	orderRoutes.Post("/", supplierHandler.CreateOrder)
-	orderRoutes.Get("/:id", supplierHandler.GetOrder)
-	orderRoutes.Put("/:id/status", supplierHandler.UpdateOrderStatus)
-	orderRoutes.Delete("/:id", supplierHandler.DeleteOrder)
-	log.Println("✅ Supplier/Order routes enabled")
-
-	// ========== Printer/Receipt Routes ==========
-	printerHandler := printerhandler.New(printerSvc)
-	printRoutes := protected.Group("/print")
-	printRoutes.Post("/receipt", printerHandler.PrintReceipt)
-	printRoutes.Post("/text", printerHandler.GetTextReceipt)
-	printRoutes.Post("/thermal", printerHandler.GetThermalReceipt)
-	printRoutes.Post("/html", printerHandler.GetHTMLReceipt)
-	printRoutes.Post("/report", printerHandler.PrintDailyReport)
-	printRoutes.Get("/printers", printerHandler.GetPrinters)
-	printRoutes.Post("/test", printerHandler.TestPrinter)
-	printRoutes.Put("/config", printerHandler.Configure)
-	printRoutes.Get("/config", printerHandler.GetConfig)
-	log.Println("✅ Printer routes enabled")
 
 	// ========== Webhook Routes (External - No Auth) ==========
 	webhook := app.Group("/webhook")
@@ -961,6 +590,7 @@ func main() {
 	// ========== WebSocket ==========
 	websocket.Init()
 	app.Get("/ws", websocket.HandleWebSocket)
+	app.Get("/ws/*", websocket.HandleWebSocket)
 
 	// 404 handler
 	app.Use(func(c *fiber.Ctx) error {
@@ -981,7 +611,7 @@ func main() {
 	// ========== Start Server ==========
 	addr := fmt.Sprintf(":%s", cfg.Port)
 	log.Printf("🚀 Starting DukaPOS server on %s", addr)
-	log.Printf("📱 WhatsApp webhook: http://your-domain/webhook/twilio")
+	log.Printf("📱 WhatsApp webhook: http://dukapos.simuxtech.com/webhook/twilio")
 	log.Printf("🔗 API: http://localhost:%s/api", cfg.Port)
 
 	// Feature summary

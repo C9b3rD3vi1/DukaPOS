@@ -60,12 +60,20 @@ func (h *Handler) SendBulkSMS(c *fiber.Ctx) error {
 }
 
 func (h *Handler) GetBalance(c *fiber.Ctx) error {
+	if h.smsSvc == nil {
+		return c.Status(503).JSON(fiber.Map{"error": "SMS service not configured"})
+	}
+
 	balance, err := h.smsSvc.GetBalance()
 	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.JSON(fiber.Map{"success": true, "balance": balance})
+}
+
+func (h *Handler) GetHistory(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{"data": []interface{}{}})
 }
 
 func (h *Handler) RegisterRoutes(app *fiber.App, protected fiber.Router) {
@@ -77,4 +85,5 @@ func (h *Handler) RegisterRoutes(app *fiber.App, protected fiber.Router) {
 	smsRoutes.Post("/send", h.SendSMS)
 	smsRoutes.Post("/bulk", h.SendBulkSMS)
 	smsRoutes.Get("/balance", h.GetBalance)
+	smsRoutes.Get("/history", h.GetHistory)
 }

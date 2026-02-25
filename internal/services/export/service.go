@@ -1,6 +1,7 @@
 package export
 
 import (
+	"bytes"
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
@@ -8,22 +9,21 @@ import (
 	"time"
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
+	"github.com/jung-kurt/gofpdf"
 	"github.com/xuri/excelize/v2"
 )
 
-// Format represents export format
 type Format string
 
 const (
 	FormatCSV   Format = "csv"
 	FormatJSON  Format = "json"
 	FormatExcel Format = "excel"
+	FormatPDF   Format = "pdf"
 )
 
-// ProductExporter exports products
 type ProductExporter struct{}
 
-// ExportProducts exports products to specified format
 func (e *ProductExporter) Export(products []models.Product, format Format) ([]byte, error) {
 	switch format {
 	case FormatCSV:
@@ -32,6 +32,8 @@ func (e *ProductExporter) Export(products []models.Product, format Format) ([]by
 		return e.exportJSON(products)
 	case FormatExcel:
 		return e.exportExcel(products)
+	case FormatPDF:
+		return e.exportPDF(products)
 	default:
 		return e.exportCSV(products)
 	}
@@ -69,6 +71,48 @@ func (e *ProductExporter) exportCSV(products []models.Product) ([]byte, error) {
 
 func (e *ProductExporter) exportJSON(products []models.Product) ([]byte, error) {
 	return json.MarshalIndent(products, "", "  ")
+}
+
+func (e *ProductExporter) exportPDF(products []models.Product) ([]byte, error) {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
+
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(190, 10, "Product Inventory Report")
+	pdf.Ln(12)
+
+	pdf.SetFont("Arial", "B", 10)
+	headers := []string{"ID", "Name", "Category", "Unit", "Cost", "Price", "Stock", "Threshold"}
+	colWidths := []float64{15, 45, 30, 20, 25, 25, 20, 25}
+
+	for i, h := range headers {
+		pdf.Cell(colWidths[i], 8, h)
+	}
+	pdf.Ln(-1)
+
+	pdf.SetFont("Arial", "", 9)
+	for _, p := range products {
+		pdf.CellFormat(colWidths[0], 7, fmt.Sprintf("%d", p.ID), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[1], 7, p.Name, "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[2], 7, p.Category, "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[3], 7, p.Unit, "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[4], 7, fmt.Sprintf("%.2f", p.CostPrice), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[5], 7, fmt.Sprintf("%.2f", p.SellingPrice), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[6], 7, fmt.Sprintf("%d", p.CurrentStock), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[7], 7, fmt.Sprintf("%d", p.LowStockThreshold), "0", 0, "", false, 0, "")
+		pdf.Ln(-1)
+	}
+
+	pdf.Ln(10)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.Cell(190, 5, fmt.Sprintf("Generated: %s", time.Now().Format("2006-01-02 15:04:05")))
+
+	var buf bytes.Buffer
+	err := pdf.Output(&buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }
 
 func (e *ProductExporter) exportExcel(products []models.Product) ([]byte, error) {
@@ -124,10 +168,16 @@ func (e *ProductExporter) exportExcel(products []models.Product) ([]byte, error)
 	return buf.Bytes(), nil
 }
 
-// SalesExporter exports sales
+func (e *ProductExporter) InventoryValue(products []models.Product) float64 {
+	var total float64
+	for _, p := range products {
+		total += p.SellingPrice * float64(p.CurrentStock)
+	}
+	return total
+}
+
 type SalesExporter struct{}
 
-// ExportSales exports sales to specified format
 func (e *SalesExporter) Export(sales []models.Sale, format Format) ([]byte, error) {
 	switch format {
 	case FormatCSV:
@@ -136,6 +186,8 @@ func (e *SalesExporter) Export(sales []models.Sale, format Format) ([]byte, erro
 		return e.exportJSON(sales)
 	case FormatExcel:
 		return e.exportExcel(sales)
+	case FormatPDF:
+		return e.exportSalesPDF(sales)
 	default:
 		return e.exportCSV(sales)
 	}
@@ -273,10 +325,76 @@ func (e *SalesExporter) exportExcel(sales []models.Sale) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// ReportExporter exports reports
+func (e *SalesExporter) exportSalesPDF(sales []models.Sale) ([]byte, error) {
+	pdf := gofpdf.New("L", "mm", "A4", "")
+	pdf.AddPage()
+
+	pdf.SetFont("Arial", "B", 16)
+	pdf.Cell(280, 10, "Sales Report")
+	pdf.Ln(12)
+
+	pdf.SetFont("Arial", "B", 8)
+	headers := []string{"ID", "Date", "Product", "Qty", "Unit Price", "Total", "Cost", "Profit", "Payment"}
+	colWidths := []float64{15, 35, 45, 15, 25, 25, 20, 20, 25}
+
+	for i, h := range headers {
+		pdf.Cell(colWidths[i], 6, h)
+	}
+	pdf.Ln(-1)
+
+	pdf.SetFont("Arial", "", 7)
+	for _, s := range sales {
+		productName := s.Product.Name
+		if len(productName) > 20 {
+			productName = productName[:20]
+		}
+		pdf.CellFormat(colWidths[0], 5, fmt.Sprintf("%d", s.ID), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[1], 5, s.CreatedAt.Format("2006-01-02 15:04"), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[2], 5, productName, "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[3], 5, fmt.Sprintf("%d", s.Quantity), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[4], 5, fmt.Sprintf("%.2f", s.UnitPrice), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[5], 5, fmt.Sprintf("%.2f", s.TotalAmount), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[6], 5, fmt.Sprintf("%.2f", s.CostAmount), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[7], 5, fmt.Sprintf("%.2f", s.Profit), "0", 0, "", false, 0, "")
+		pdf.CellFormat(colWidths[8], 5, string(s.PaymentMethod), "0", 0, "", false, 0, "")
+		pdf.Ln(-1)
+	}
+
+	pdf.Ln(8)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.Cell(280, 5, fmt.Sprintf("Generated: %s | Total Transactions: %d", time.Now().Format("2006-01-02 15:04:05"), len(sales)))
+
+	var buf bytes.Buffer
+	err := pdf.Output(&buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
+func (e *SalesExporter) ProfitSummary(sales []models.Sale) map[string]interface{} {
+	var totalRevenue, totalCost, totalProfit float64
+	paymentMethods := make(map[string]float64)
+
+	for _, s := range sales {
+		totalRevenue += s.TotalAmount
+		totalCost += s.CostAmount
+		totalProfit += s.Profit
+		paymentMethods[string(s.PaymentMethod)] += s.TotalAmount
+	}
+
+	return map[string]interface{}{
+		"total_revenue":     totalRevenue,
+		"total_cost":        totalCost,
+		"total_profit":      totalProfit,
+		"transaction_count": len(sales),
+		"average_sale":      totalRevenue / float64(len(sales)),
+		"by_payment_method": paymentMethods,
+	}
+}
+
 type ReportExporter struct{}
 
-// DailyReportData represents daily report data
 type DailyReportData struct {
 	Date             string        `json:"date"`
 	TotalSales       float64       `json:"total_sales"`
@@ -286,14 +404,12 @@ type DailyReportData struct {
 	TopProducts      []ProductSale `json:"top_products"`
 }
 
-// ProductSale represents product sale in report
 type ProductSale struct {
 	Name     string  `json:"name"`
 	Quantity int     `json:"quantity"`
 	Revenue  float64 `json:"revenue"`
 }
 
-// ExportDaily exports daily report
 func (e *ReportExporter) ExportDaily(report DailyReportData, format Format) ([]byte, error) {
 	switch format {
 	case FormatCSV:
@@ -302,6 +418,8 @@ func (e *ReportExporter) ExportDaily(report DailyReportData, format Format) ([]b
 		return json.MarshalIndent(report, "", "  ")
 	case FormatExcel:
 		return e.exportDailyExcel(report)
+	case FormatPDF:
+		return e.exportDailyPDF(report)
 	default:
 		return e.exportDailyCSV(report)
 	}
@@ -419,33 +537,67 @@ func (e *ReportExporter) exportDailyExcel(report DailyReportData) ([]byte, error
 	return buf.Bytes(), nil
 }
 
-// InventoryValue calculates total inventory value
-func (e *ProductExporter) InventoryValue(products []models.Product) float64 {
-	var total float64
-	for _, p := range products {
-		total += p.SellingPrice * float64(p.CurrentStock)
-	}
-	return total
-}
+func (e *ReportExporter) exportDailyPDF(report DailyReportData) ([]byte, error) {
+	pdf := gofpdf.New("P", "mm", "A4", "")
+	pdf.AddPage()
 
-// ProfitSummary calculates profit summary
-func (e *SalesExporter) ProfitSummary(sales []models.Sale) map[string]interface{} {
-	var totalRevenue, totalCost, totalProfit float64
-	paymentMethods := make(map[string]float64)
+	pdf.SetFont("Arial", "B", 18)
+	pdf.Cell(190, 15, "Daily Sales Report")
+	pdf.Ln(12)
 
-	for _, s := range sales {
-		totalRevenue += s.TotalAmount
-		totalCost += s.CostAmount
-		totalProfit += s.Profit
-		paymentMethods[string(s.PaymentMethod)] += s.TotalAmount
+	pdf.SetFont("Arial", "", 12)
+	pdf.Cell(190, 8, fmt.Sprintf("Date: %s", report.Date))
+	pdf.Ln(12)
+
+	pdf.SetFont("Arial", "B", 14)
+	pdf.Cell(190, 10, "Summary")
+	pdf.Ln(8)
+
+	pdf.SetFont("Arial", "", 12)
+	summaryData := []struct {
+		label, value string
+	}{
+		{"Total Sales", fmt.Sprintf("KSh %.2f", report.TotalSales)},
+		{"Total Profit", fmt.Sprintf("KSh %.2f", report.TotalProfit)},
+		{"Transactions", fmt.Sprintf("%d", report.TransactionCount)},
+		{"Average Sale", fmt.Sprintf("KSh %.2f", report.AverageSale)},
 	}
 
-	return map[string]interface{}{
-		"total_revenue":     totalRevenue,
-		"total_cost":        totalCost,
-		"total_profit":      totalProfit,
-		"transaction_count": len(sales),
-		"average_sale":      totalRevenue / float64(len(sales)),
-		"by_payment_method": paymentMethods,
+	for _, s := range summaryData {
+		pdf.SetFont("Arial", "B", 11)
+		pdf.Cell(60, 8, s.label)
+		pdf.SetFont("Arial", "", 11)
+		pdf.Cell(130, 8, s.value)
+		pdf.Ln(-1)
 	}
+
+	pdf.Ln(10)
+	pdf.SetFont("Arial", "B", 14)
+	pdf.Cell(190, 10, "Top Products")
+	pdf.Ln(8)
+
+	pdf.SetFont("Arial", "B", 10)
+	pdf.Cell(100, 8, "Product")
+	pdf.Cell(45, 8, "Quantity")
+	pdf.Cell(45, 8, "Revenue")
+	pdf.Ln(-1)
+
+	pdf.SetFont("Arial", "", 10)
+	for _, p := range report.TopProducts {
+		pdf.Cell(100, 7, p.Name)
+		pdf.Cell(45, 7, fmt.Sprintf("%d", p.Quantity))
+		pdf.Cell(45, 7, fmt.Sprintf("KSh %.2f", p.Revenue))
+		pdf.Ln(-1)
+	}
+
+	pdf.Ln(15)
+	pdf.SetFont("Arial", "I", 8)
+	pdf.Cell(190, 5, fmt.Sprintf("Generated by DukaPOS on %s", time.Now().Format("2006-01-02 15:04:05")))
+
+	var buf bytes.Buffer
+	err := pdf.Output(&buf)
+	if err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
 }

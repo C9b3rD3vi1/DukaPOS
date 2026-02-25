@@ -1,6 +1,7 @@
 package loyalty
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/C9b3rD3vi1/DukaPOS/internal/models"
@@ -30,6 +31,12 @@ func (h *Handler) RegisterRoutes(app fiber.Router) {
 	loyalty.Post("/redeem", h.RedeemPoints)
 	loyalty.Post("/earn", h.EarnPoints)
 	loyalty.Get("/transactions/:customer_id", h.ListTransactions)
+
+	// Shop-level endpoints
+	loyalty.Get("/stats/shop/:shop_id", h.GetShopLoyaltyStats)
+	loyalty.Get("/members", h.ListLoyaltyMembers)
+	loyalty.Post("/points/add", h.AddPoints)
+	loyalty.Post("/points/redeem", h.RedeemPoints)
 }
 
 func (h *Handler) GetCustomerPoints(c *fiber.Ctx) error {
@@ -253,5 +260,127 @@ func (h *Handler) ListTransactions(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"transactions": transactions,
 		"total":        len(transactions),
+	})
+}
+
+func (h *Handler) GetShopLoyaltyStats(c *fiber.Ctx) error {
+	shopID, err := c.ParamsInt("shop_id")
+	if err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid shop_id"})
+	}
+
+	var totalMembers int64
+	h.db.Model(&models.Customer{}).Where("shop_id = ? AND loyalty_points > 0", shopID).Count(&totalMembers)
+
+	var totalPoints int64
+	h.db.Model(&models.Customer{}).Where("shop_id = ?", shopID).Select("COALESCE(SUM(loyalty_points), 0)").Scan(&totalPoints)
+
+	var totalRedemptions int64
+	h.db.Model(&models.LoyaltyTransaction{}).Where("shop_id = ? AND points < 0", shopID).Count(&totalRedemptions)
+
+	var activeThisMonth int64
+	startOfMonth := time.Now().Truncate(24*time.Hour).AddDate(0, 0, -30)
+	h.db.Model(&models.LoyaltyTransaction{}).Where("shop_id = ? AND created_at > ?", shopID, startOfMonth).Count(&activeThisMonth)
+
+	return c.JSON(fiber.Map{
+		"total_members":     totalMembers,
+		"total_points":      totalPoints,
+		"total_redemptions": totalRedemptions,
+		"active_this_month": activeThisMonth,
+	})
+}
+
+func (h *Handler) ListLoyaltyMembers(c *fiber.Ctx) error {
+	shopIDStr := c.Query("shop_id")
+	if shopIDStr == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "shop_id is required"})
+	}
+	var shopID uint
+	if _, err := fmt.Sscanf(shopIDStr, "%d", &shopID); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid shop_id"})
+	}
+
+	var members []models.Customer
+	h.db.Where("shop_id = ? AND loyalty_points > 0", shopID).
+		Order("loyalty_points DESC").
+		Find(&members)
+
+	type MemberResponse struct {
+		ID         uint       `json:"id"`
+		CustomerID uint       `json:"customer_id"`
+		ShopID     uint       `json:"shop_id"`
+		Points     int        `json:"points"`
+		Tier       string     `json:"tier"`
+		TotalSpent float64    `json:"total_spent"`
+		Visits     int        `json:"visits"`
+		LastVisit  *time.Time `json:"last_visit,omitempty"`
+	}
+
+	response := make([]MemberResponse, len(members))
+	for i, m := range members {
+		response[i] = MemberResponse{
+			ID:         m.ID,
+			CustomerID: m.ID,
+			ShopID:     m.ShopID,
+			Points:     m.LoyaltyPoints,
+			Tier:       string(m.Tier),
+			TotalSpent: m.TotalSpent,
+			Visits:     m.TotalPurchases,
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"data": response,
+	})
+}
+
+func (h *Handler) AddPoints(c *fiber.Ctx) error {
+	type AddPointsRequest struct {
+		CustomerID  uint   `json:"customer_id"`
+		ShopID      uint   `json:"shop_id"`
+		Points      int    `json:"points"`
+		Description string `json:"description"`
+	}
+
+	var req AddPointsRequest
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid request body"})
+	}
+
+	if req.Points <= 0 {
+		return c.Status(400).JSON(fiber.Map{"error": "points must be greater than 0"})
+	}
+
+	customer, err := h.customerRepo.GetByID(req.CustomerID)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "customer not found"})
+	}
+
+	pointsBefore := customer.LoyaltyPoints
+	customer.LoyaltyPoints += req.Points
+	customer.PointsEarned += req.Points
+	customer.TotalSpent += float64(req.Points)
+
+	if err := h.customerRepo.Update(customer); err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	transaction := &models.LoyaltyTransaction{
+		CustomerID:   req.CustomerID,
+		ShopID:       req.ShopID,
+		Type:         models.LoyaltyEarned,
+		Points:       req.Points,
+		PointsBefore: pointsBefore,
+		PointsAfter:  customer.LoyaltyPoints,
+		Amount:       float64(req.Points),
+		Description:  req.Description,
+	}
+
+	h.db.Create(transaction)
+
+	return c.JSON(fiber.Map{
+		"message":      "points added successfully",
+		"points_added": req.Points,
+		"total_points": customer.LoyaltyPoints,
 	})
 }

@@ -68,6 +68,10 @@ func (h *Handler) SendWelcomeEmail(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true})
 }
 
+func (h *Handler) GetHistory(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{"data": []interface{}{}})
+}
+
 func (h *Handler) RegisterRoutes(protected fiber.Router) {
 	emailRoutes := protected.Group("/email")
 	emailRoutes.Post("/send", h.SendEmail)

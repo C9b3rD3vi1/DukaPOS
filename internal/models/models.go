@@ -65,6 +65,19 @@ type Shop struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 
+	// White Label Branding
+	BrandName           string `gorm:"size:100" json:"brand_name"`
+	BrandLogo           string `gorm:"size:255" json:"brand_logo"`
+	BrandPrimaryColor   string `gorm:"size:7" json:"brand_primary_color"`
+	BrandSecondaryColor string `gorm:"size:7" json:"brand_secondary_color"`
+	BrandAccentColor    string `gorm:"size:7" json:"brand_accent_color"`
+	BrandFont           string `gorm:"size:50" json:"brand_font"`
+	CustomDomain        string `gorm:"size:255" json:"custom_domain"`
+	CustomSubdomain     string `gorm:"size:50" json:"custom_subdomain"`
+	InvoiceFooter       string `gorm:"size:500" json:"invoice_footer"`
+	ReceiptHeader       string `gorm:"size:255" json:"receipt_header"`
+	ReceiptFooter       string `gorm:"size:500" json:"receipt_footer"`
+
 	// Relations
 	Account  Account   `gorm:"foreignKey:AccountID" json:"account,omitempty"`
 	Products []Product `gorm:"foreignKey:ShopID" json:"products,omitempty"`
@@ -258,6 +271,23 @@ type APIKey struct {
 	Shop Shop `gorm:"foreignKey:ShopID" json:"shop,omitempty"`
 }
 
+// Device represents registered mobile devices for push notifications
+type Device struct {
+	ID           uint       `gorm:"primaryKey" json:"id"`
+	UserID       uint       `gorm:"index;not null" json:"user_id"`
+	ShopID       *uint      `gorm:"index" json:"shop_id"`
+	DeviceToken  string     `gorm:"size:255;uniqueIndex;not null" json:"device_token"`
+	Platform     string     `gorm:"size:20;not null" json:"platform"` // "ios" or "android"
+	IsActive     bool       `gorm:"default:true" json:"is_active"`
+	LastActiveAt *time.Time `json:"last_active_at"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
+
+	// Relations
+	User *Account `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Shop *Shop    `gorm:"foreignKey:ShopID" json:"shop,omitempty"`
+}
+
 // LoyaltyTransaction - see loyalty.go for complete model
 
 // BeforeCreate hook for Shop
@@ -286,4 +316,48 @@ func (s *Sale) BeforeCreate(tx *gorm.DB) error {
 	}
 	s.Profit = s.TotalAmount - s.CostAmount
 	return nil
+}
+
+// ScheduledReport represents a scheduled report configuration
+type ScheduledReport struct {
+	ID         uint           `gorm:"primaryKey" json:"id"`
+	ShopID     uint           `gorm:"index;not null" json:"shop_id"`
+	Type       string         `gorm:"size:20;not null" json:"type"`      // daily, weekly, monthly
+	Frequency  string         `gorm:"size:20;not null" json:"frequency"` // daily, monday, etc.
+	Time       string         `gorm:"size:5;not null" json:"time"`       // HH:MM format
+	Enabled    bool           `gorm:"default:true" json:"enabled"`
+	Recipients string         `gorm:"type:text" json:"recipients"` // comma-separated phone numbers
+	LastSent   *time.Time     `json:"last_sent"`
+	CreatedAt  time.Time      `json:"created_at"`
+	UpdatedAt  time.Time      `json:"updated_at"`
+	DeletedAt  gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// StaffRole represents a staff role with permissions
+type StaffRole struct {
+	ID          uint           `gorm:"primaryKey" json:"id"`
+	ShopID      uint           `gorm:"index;not null" json:"shop_id"`
+	Name        string         `gorm:"size:50;not null" json:"name"`
+	Permissions string         `gorm:"type:text" json:"permissions"` // JSON array of permissions
+	Description string         `gorm:"size:200" json:"description"`
+	IsDefault   bool           `gorm:"default:false" json:"is_default"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
+	DeletedAt   gorm.DeletedAt `gorm:"index" json:"-"`
+}
+
+// WhiteLabelConfig represents white label branding configuration
+type WhiteLabelConfig struct {
+	ID             uint           `gorm:"primaryKey" json:"id"`
+	ShopID         uint           `gorm:"uniqueIndex;not null" json:"shop_id"`
+	BrandName      string         `gorm:"size:100" json:"brand_name"`
+	BrandColor     string         `gorm:"size:7" json:"brand_color"` // hex color
+	LogoURL        string         `gorm:"size:255" json:"logo_url"`
+	CustomCSS      string         `gorm:"type:text" json:"custom_css"`
+	CustomDomain   string         `gorm:"size:255" json:"custom_domain"`
+	WhatsAppNumber string         `gorm:"size:20" json:"whatsapp_number"`
+	Enabled        bool           `gorm:"default:false" json:"enabled"`
+	CreatedAt      time.Time      `json:"created_at"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	DeletedAt      gorm.DeletedAt `gorm:"index" json:"-"`
 }

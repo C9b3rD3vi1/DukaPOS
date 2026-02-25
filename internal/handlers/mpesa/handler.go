@@ -193,9 +193,9 @@ func (h *Handler) GetStatus(c *fiber.Ctx) error {
 }
 
 func (h *Handler) ListPayments(c *fiber.Ctx) error {
-	if h.paymentRepo == nil {
+	if h.service == nil || h.paymentRepo == nil {
 		return c.Status(503).JSON(fiber.Map{
-			"error": "payment service not configured",
+			"error": "M-Pesa service not configured",
 		})
 	}
 

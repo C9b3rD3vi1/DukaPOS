@@ -1,13 +1,118 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>dukapos-frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- Primary Meta Tags -->
+    <title>DukaPOS - WhatsApp POS for Kenyan Shops</title>
+    <meta name="title" content="DukaPOS - WhatsApp POS for Kenyan Shops" />
+    <meta name="description" content="Manage your duka from WhatsApp. Track stock, record sales, reconcile M-Pesa, and grow your business." />
+    <meta name="author" content="DukaPOS" />
+    <meta name="robots" content="index, follow" />
+    <meta name="theme-color" content="#00A650" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="/icons/icon.svg" />
+    <link rel="apple-touch-icon" href="/icons/icon.svg" />
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    
+    <!-- Apple Mobile Web App -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="DukaPOS" />
+    <link rel="apple-touch-startup-image" href="/icons/icon-512.png" />
+    
+    <!-- Mobile App Tags -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="msapplication-TileColor" content="#00A650" />
+    <meta name="msapplication-tap-highlight" content="no" />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dukapos.com/" />
+    <meta property="og:title" content="DukaPOS - WhatsApp POS for Kenyan Shops" />
+    <meta property="og:description" content="Manage your duka from WhatsApp. Track stock, record sales, reconcile M-Pesa." />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:url" content="https://dukapos.com/" />
+    <meta name="twitter:title" content="DukaPOS - WhatsApp POS for Kenyan Shops" />
+    <meta name="twitter:description" content="Manage your duka from WhatsApp. Track stock, record sales, reconcile M-Pesa." />
+    <meta name="twitter:image" content="/icons/icon-512.png" />
+    
+    <!-- Preconnect to API server -->
+    <link rel="preconnect" href="https://api.dukapos.com" crossorigin />
+    
+    <!-- Plus Jakarta Sans - Modern font with Swahili character support -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    
+    <style>
+      /* Critical CSS for faster initial paint */
+      body {
+        background-color: #ffffff;
+        margin: 0;
+        padding: 0;
+        font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      
+      /* Offline/Online state indicators */
+      body.offline {
+        /* Styles for offline state */
+      }
+      
+      body.online {
+        /* Styles for online state */
+      }
+      
+      /* Prevent pull-to-refresh on mobile */
+      body {
+        overscroll-behavior-y: contain;
+      }
+      
+      /* Hide scrollbar but keep functionality */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1;
+        border-radius: 3px;
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Loading state -->
+      <div style="display: flex; align-items: center; justify-content: center; height: 100vh; background: #00A650;">
+        <div style="text-align: center; color: white;">
+          <svg width="64" height="64" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect width="72" height="72" rx="12" fill="#00A650"/>
+            <path d="M36 18L24 30v12l12 12 12-12V30L36 18z" fill="white"/>
+            <path d="M36 26l-6 6v8l6 6 6-6v-8l-6-6z" fill="#00A650"/>
+            <circle cx="36" cy="36" r="3" fill="white"/>
+          </svg>
+          <p style="margin-top: 16px; font-size: 16px; font-weight: 600;">Loading DukaPOS...</p>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
+    <noscript>
+      <div style="padding: 20px; text-align: center;">
+        <h1>JavaScript Required</h1>
+        <p>Please enable JavaScript to use DukaPOS.</p>
+      </div>
+    </noscript>
   </body>
 </html>

@@ -163,3 +163,9 @@ func (h *Handler) UpgradePlan(c *fiber.Ctx) error {
 		"old_plan": oldPlan,
 	})
 }
+
+func (h *Handler) GetHistory(c *fiber.Ctx) error {
+	return c.JSON(fiber.Map{
+		"data": []interface{}{},
+	})
+}

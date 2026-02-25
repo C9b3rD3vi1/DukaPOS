@@ -117,7 +117,7 @@
 | **Multi-Currency** | USD, TZS, UGX support | P3 | ✅ Implemented |
 | **POS Hardware** | Receipt printer support | P3 | ✅ Implemented |
 | **API Access** | Third-party integrations | P3 | ✅ Implemented |
-| **White Label** | Custom branding | P3 | ❌ Not implemented |
+| **White Label** | Custom branding | P3 | ✅ Implemented |
 | **Web Dashboard** | Browser-based management | P2 | ✅ Implemented |
 | **Mobile App** | iOS/Android apps | P3 | ❌ Not started |
 | **Scheduled Reports** | Auto daily/weekly reports | P2 | ✅ Implemented |

@@ -18,14 +18,9 @@ func New(predictionService *aiservice.PredictionService) *Handler {
 }
 
 func (h *Handler) GetPredictions(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid shop ID",
-		})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
-	predictions, err := h.predictionService.GetPredictions(uint(shopID))
+	predictions, err := h.predictionService.GetPredictions(shopID)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to generate predictions",
@@ -36,14 +31,9 @@ func (h *Handler) GetPredictions(c *fiber.Ctx) error {
 }
 
 func (h *Handler) GetRestockRecommendations(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid shop ID",
-		})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
-	recommendations, err := h.predictionService.GetRestockRecommendations(uint(shopID))
+	recommendations, err := h.predictionService.GetRestockRecommendations(shopID)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to get recommendations",
@@ -58,12 +48,7 @@ func (h *Handler) GetRestockRecommendations(c *fiber.Ctx) error {
 }
 
 func (h *Handler) GetSalesAnalytics(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid shop ID",
-		})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
 	days, _ := strconv.Atoi(c.Query("days", "30"))
 	if days < 1 {
@@ -73,7 +58,7 @@ func (h *Handler) GetSalesAnalytics(c *fiber.Ctx) error {
 		days = 365
 	}
 
-	analytics, err := h.predictionService.GetSalesAnalytics(uint(shopID), days)
+	analytics, err := h.predictionService.GetSalesAnalytics(shopID, days)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to get analytics",
@@ -84,14 +69,9 @@ func (h *Handler) GetSalesAnalytics(c *fiber.Ctx) error {
 }
 
 func (h *Handler) GetInventoryValue(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid shop ID",
-		})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
-	value, err := h.predictionService.GetInventoryValue(uint(shopID))
+	value, err := h.predictionService.GetInventoryValue(shopID)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to get inventory value",
@@ -105,12 +85,7 @@ func (h *Handler) GetInventoryValue(c *fiber.Ctx) error {
 }
 
 func (h *Handler) GenerateForecast(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid shop ID",
-		})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
 	var req struct {
 		ProductID   uint `json:"product_id"`
@@ -151,14 +126,9 @@ func (h *Handler) GenerateForecast(c *fiber.Ctx) error {
 }
 
 func (h *Handler) GetTrends(c *fiber.Ctx) error {
-	shopID, err := strconv.ParseUint(c.Params("shop_id"), 10, 32)
-	if err != nil {
-		return c.Status(400).JSON(fiber.Map{
-			"error": "Invalid shop ID",
-		})
-	}
+	shopID := c.Locals("shop_id").(uint)
 
-	predictions, err := h.predictionService.GetPredictions(uint(shopID))
+	predictions, err := h.predictionService.GetPredictions(shopID)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{
 			"error": "Failed to get trends",
